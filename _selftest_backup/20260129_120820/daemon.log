@@ -1,0 +1,234 @@
+[selftest] LOG_WINDOW_START=2026-01-29T12:03:48+03:00
+[selftest] START_MARKER_1769677428
+[pipeline] start 2026-01-29T12:03:48+03:00 max_iters=5
+[pipeline] iter=1
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:03:48+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:03:48+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:03:48+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:03:48+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:03:48+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:03:48+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:03:48+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:03:48+03:00
+[pipeline] iter=1 critic_verdict='VERDICT: request changes'
+[pipeline] iter=2
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:03:49+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:03:49+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:03:49+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:03:49+03:00
+[pipeline] iter=2 critic_verdict='VERDICT: request changes'
+[pipeline] iter=3
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:03:49+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:03:49+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:03:49+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:03:49+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:03:49+03:00
+[pipeline] iter=3 critic_verdict='VERDICT: request changes'
+[pipeline] iter=4
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:03:50+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:03:50+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:03:50+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:03:50+03:00
+[pipeline] iter=4 critic_verdict='VERDICT: request changes'
+[pipeline] iter=5
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:03:50+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:03:50+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:03:50+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:03:50+03:00
+[pipeline] iter=5 critic_verdict='VERDICT: request changes'
+[pipeline] run role=orchestrator prompt=.prompt_orch_b.txt start 2026-01-29T12:03:50+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:03:51+03:00
+[pipeline] max iters reached, final report written 2026-01-29T12:03:51+03:00
+[pipeline] another run is active, exiting 2026-01-29T12:03:52+03:00
+[selftest] LOG_WINDOW_START=2026-01-29T12:06:59+03:00
+[selftest] START_MARKER_1769677619
+[pipeline] start 2026-01-29T12:06:59+03:00 max_iters=5
+[pipeline] iter=1
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:06:59+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:06:59+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:06:59+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:06:59+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:06:59+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:06:59+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:06:59+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:06:59+03:00
+[pipeline] iter=1 critic_verdict='VERDICT: request changes'
+[pipeline] iter=2
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:06:59+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:06:59+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:06:59+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:06:59+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:06:59+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:00+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:00+03:00
+[pipeline] iter=2 critic_verdict='VERDICT: request changes'
+[pipeline] iter=3
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:00+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:00+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:00+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:00+03:00
+[pipeline] iter=3 critic_verdict='VERDICT: request changes'
+[pipeline] iter=4
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:00+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:00+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:00+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:00+03:00
+[pipeline] iter=4 critic_verdict='VERDICT: request changes'
+[pipeline] iter=5
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:00+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:00+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:00+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:01+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:01+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:01+03:00
+[pipeline] iter=5 critic_verdict='VERDICT: request changes'
+[pipeline] run role=orchestrator prompt=.prompt_orch_b.txt start 2026-01-29T12:07:01+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:01+03:00
+[pipeline] max iters reached, final report written 2026-01-29T12:07:01+03:00
+[pipeline] another run is active, exiting 2026-01-29T12:07:02+03:00
+[selftest] LOG_WINDOW_START=2026-01-29T12:07:43+03:00
+[selftest] START_MARKER_1769677664
+[pipeline] start 2026-01-29T12:07:44+03:00 max_iters=5
+[pipeline] iter=1
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:44+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:44+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:44+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:44+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:44+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:44+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:44+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:44+03:00
+[pipeline] iter=1 critic_verdict='VERDICT: request changes'
+[pipeline] iter=2
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:44+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:44+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:44+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:44+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:44+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:45+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:45+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:45+03:00
+[pipeline] iter=2 critic_verdict='VERDICT: request changes'
+[pipeline] iter=3
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:45+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:45+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:45+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:45+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:45+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:45+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:45+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:45+03:00
+[pipeline] iter=3 critic_verdict='VERDICT: request changes'
+[pipeline] iter=4
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:45+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:45+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:45+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:46+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:46+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:46+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:46+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:46+03:00
+[pipeline] iter=4 critic_verdict='VERDICT: request changes'
+[pipeline] iter=5
+[pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T12:07:46+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:46+03:00
+[pipeline] run role=executor prompt=.prompt_exec.txt start 2026-01-29T12:07:46+03:00
+ACK
+[pipeline] done role=executor 2026-01-29T12:07:46+03:00
+[pipeline] run role=critic prompt=.prompt_critic.txt start 2026-01-29T12:07:46+03:00
+ACK
+[pipeline] done role=critic 2026-01-29T12:07:46+03:00
+[pipeline] run role=auditor prompt=.prompt_auditor.txt start 2026-01-29T12:07:46+03:00
+ACK
+[pipeline] done role=auditor 2026-01-29T12:07:46+03:00
+[pipeline] iter=5 critic_verdict='VERDICT: request changes'
+[pipeline] run role=orchestrator prompt=.prompt_orch_b.txt start 2026-01-29T12:07:46+03:00
+ACK
+[pipeline] done role=orchestrator 2026-01-29T12:07:46+03:00
+[pipeline] max iters reached, final report written 2026-01-29T12:07:46+03:00
+[pipeline] another run is active, exiting 2026-01-29T12:07:48+03:00

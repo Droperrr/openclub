@@ -1,0 +1,6 @@
+[iter=5] Critic:
+Read 01_ARCH_TASKS.md + 02_EXECUTOR_REPORT.md + STRATEGY_KNOWLEDGE_BASE.md + ISSUES.md + DIALOGUE.md.
+Verify vs skills strategy-knowledge-base + stage1-spec.
+If you need more info from Executor/Auditor: ask in DIALOGUE.md (to:@executor or to:@auditor) and set VERDICT: request changes.
+Write 03_CRITIC_REPORT.md. Also append mismatches to ISSUES.md with evidence.
+In chat: ACK + VERDICT only.

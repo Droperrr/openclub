@@ -1,0 +1,4 @@
+Write into .opencode/workflow/02_EXECUTOR_REPORT.md (overwrite) the following:
+STATUS: SUCCESS
+NOTES: executor headless smoke ok
+Print: ACK EXEC SMOKE.

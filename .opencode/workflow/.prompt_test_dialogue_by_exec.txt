@@ -1,0 +1,3 @@
+Append exactly one line to .opencode/workflow/DIALOGUE.md:
+- [TEST-RUNNER] from:@executor to:@pm topic:runner need:confirm msg:dialogue write ok
+Print in chat: ACK DIALOGUE-EXEC.

@@ -1,0 +1,4 @@
+MODE B (Final report) [iter=5]:
+Read 02_EXECUTOR_REPORT.md, 03_CRITIC_REPORT.md, 04_AUDITOR_REPORT.md, ISSUES.md, DIALOGUE.md.
+Write RU final report to 05_ARCH_FINAL_REPORT.md with evidence and verdict.
+In chat: ACK only.

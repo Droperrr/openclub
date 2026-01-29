@@ -1,0 +1,4 @@
+Write into .opencode/workflow/04_AUDITOR_REPORT.md (overwrite):
+CHECKLIST: pass
+FINDINGS: none
+Print: ACK AUDITOR SMOKE.

@@ -1,0 +1,6 @@
+[iter=5] Executor:
+Read 01_ARCH_TASKS.md + ISSUES.md + DIALOGUE.md.
+Execute ONLY @executor section.
+Write report to 02_EXECUTOR_REPORT.md.
+If blocked or needs clarification: write question to DIALOGUE.md (to:@critic or to:@orchestrator) and log an issue in ISSUES.md, then stop.
+In chat: ACK only.

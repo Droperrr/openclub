@@ -1,0 +1,4 @@
+Overwrite .opencode/workflow/02_EXECUTOR_REPORT.md with:
+STATUS: SUCCESS
+NOTES/RISKS: runner headless exec ok
+Print: ACK EXEC-RUNNER.

@@ -1,0 +1,15 @@
+=== SELFTEST v2 START: 2026-01-29T05:52:23+03:00 ===
+ROOT=/home/ilya/club
+MODE=green
+DESTRUCTIVE=1
+TIMEOUT=1800
+[SETUP] Backing up state to .opencode/_selftest_backup/20260129_055223...
+[SETUP] Cleaning state (DESTRUCTIVE MODE)...
+started pid=17949
+[TEST] Triggering pipeline via daemon...
+[TEST] Waiting for pipeline cycle (max 1800 s)...
+Wait 0s... Last: No milestones yet
+Wait 30s... Last: [pipeline] run role=orchestrator prompt=.prompt_orch_a.txt start 2026-01-29T05:52:25+03:00
+[PROG] All roles completed at least once.
+TIMEOUT reached.
+.opencode/workflow/selftest.sh: line 206: fy: command not found

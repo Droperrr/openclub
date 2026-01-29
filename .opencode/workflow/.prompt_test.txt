@@ -1,0 +1,3 @@
+Write a single line into .opencode/workflow/DIALOGUE.md:
+- [TEST] from:@orchestrator to:@pm topic:runner need:confirm msg:runner works
+Also print in chat: ACK TEST.

@@ -1,0 +1,4 @@
+Write into .opencode/workflow/03_CRITIC_REPORT.md (overwrite):
+SUMMARY: critic headless smoke ok
+VERDICT: approve
+Print: ACK CRITIC SMOKE.

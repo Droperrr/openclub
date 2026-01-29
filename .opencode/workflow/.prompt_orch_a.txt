@@ -1,0 +1,6 @@
+MODE A (Generate tasks) [iter=5]:
+Read .opencode/workflow/00_PM_REQUEST.md and STRATEGY_KNOWLEDGE_BASE.md.
+Also read .opencode/workflow/ISSUES.md and .opencode/workflow/DIALOGUE.md (latest state).
+Load skills: strategy-knowledge-base, stage1-spec, orchestration-protocol.
+Write TASKS+COLLECT to .opencode/workflow/01_ARCH_TASKS.md.
+In chat: ACK only.
