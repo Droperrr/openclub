@@ -27,6 +27,13 @@ if [[ -f "$VERSION_FILE" ]]; then
   TEAM_VERSION=$(head -n 1 "$VERSION_FILE" | tr -d '\r')
 fi
 
+RUN_ID=""
+OC_VERSION=""
+OPENCODE_VERSION=""
+RUN_ID_LINE=""
+RUN_ID_FILE=""
+PRE_EXEC_REPORT_EMPTY=0
+
 LOG_WINDOW_START_BYTES=0
 INFRA_START=0
 INFRA_ORCH_DONE=0
@@ -36,6 +43,8 @@ DAEMON_WAS_RUNNING=0
 OC_STUB_PATH=""
 PRE_ISSUES_PATH=""
 PRE_ISSUES_LINES=0
+PRE_DIALOGUE_PATH=""
+PRE_DIALOGUE_LINES=0
 
 backup_state() {
   if [[ $DESTRUCTIVE -eq 1 ]]; then
@@ -51,13 +60,18 @@ backup_state() {
 
 cleanup_state() {
   if [[ $DESTRUCTIVE -eq 1 ]]; then
-    echo "[SETUP] Cleaning state (DESTRUCTIVE MODE)..."
-    rm -f "$WF/.lock"
-    rm -f "$WF/.step_"*.log
-    rm -rf __pycache__ core/__pycache__ infrastructure/__pycache__
-    rm -f *.pyc core/*.pyc infrastructure/*.pyc
-    rm -f logs/events.jsonl
-    rm -f "$LOG"
+  echo "[SETUP] Cleaning state (DESTRUCTIVE MODE)..."
+  rm -f "$WF/.lock"
+  rm -f "$WF/.step_"*.log
+  rm -f "$WF/.pm_request_hash"
+  rm -f "$WF/.daemon.pid"
+  rm -f "$WF/0"{1,2,3,4,5}_*.md
+  rm -rf "$WF/_selftest_backup"
+  rm -rf __pycache__ core/__pycache__ infrastructure/__pycache__
+  rm -f *.pyc core/*.pyc infrastructure/*.pyc
+  rm -f logs/events.jsonl
+  rm -f "$LOG"
+
   else
     echo "[SETUP] Non-destructive mode. Keeping existing files."
   fi
@@ -66,11 +80,7 @@ cleanup_state() {
 prepare_log_window() {
   mkdir -p "$WF"
   touch "$LOG"
-  local log_window_start
-  log_window_start="$(date -Is)"
-  echo "[selftest] LOG_WINDOW_START=$log_window_start" >> "$LOG"
   LOG_WINDOW_START_BYTES=$(wc -c < "$LOG" 2>/dev/null || echo 0)
-  echo "[selftest] START_MARKER_$(date +%s)" >> "$LOG"
 }
 
 snapshot_issues_prefix() {
@@ -80,6 +90,16 @@ snapshot_issues_prefix() {
     PRE_ISSUES_LINES=$(wc -l < "$WF/ISSUES.md" | tr -d ' ')
   else
     PRE_ISSUES_LINES=0
+  fi
+}
+
+snapshot_dialogue_prefix() {
+  if [[ -f "$WF/DIALOGUE.md" ]]; then
+    PRE_DIALOGUE_PATH="$(mktemp)"
+    cp "$WF/DIALOGUE.md" "$PRE_DIALOGUE_PATH"
+    PRE_DIALOGUE_LINES=$(wc -l < "$WF/DIALOGUE.md" | tr -d ' ')
+  else
+    PRE_DIALOGUE_LINES=0
   fi
 }
 
@@ -96,6 +116,25 @@ check_issues_prefix() {
   if ! diff -q "$PRE_ISSUES_PATH" "$WF/ISSUES.md" >/dev/null 2>&1; then
     if ! diff -q "$PRE_ISSUES_PATH" <(head -n "$PRE_ISSUES_LINES" "$WF/ISSUES.md") >/dev/null 2>&1; then
       echo "FAIL: ISSUES.md pre-run content not preserved as prefix."
+      return 1
+    fi
+  fi
+  return 0
+}
+
+check_dialogue_prefix() {
+  if [[ -z "$PRE_DIALOGUE_PATH" ]]; then
+    return 0
+  fi
+  local current_lines
+  current_lines=$(wc -l < "$WF/DIALOGUE.md" | tr -d ' ')
+  if [[ "$current_lines" -lt "$PRE_DIALOGUE_LINES" ]]; then
+    echo "FAIL: DIALOGUE.md line count decreased (append-only violation)."
+    return 1
+  fi
+  if ! diff -q "$PRE_DIALOGUE_PATH" "$WF/DIALOGUE.md" >/dev/null 2>&1; then
+    if ! diff -q "$PRE_DIALOGUE_PATH" <(head -n "$PRE_DIALOGUE_LINES" "$WF/DIALOGUE.md") >/dev/null 2>&1; then
+      echo "FAIL: DIALOGUE.md pre-run content not preserved as prefix."
       return 1
     fi
   fi
@@ -121,6 +160,31 @@ except Exception:
 PY
 }
 
+log_window_run() {
+  if [[ ! -f "$LOG" ]]; then
+    return 0
+  fi
+  if [[ -z "$RUN_ID" ]]; then
+    return 0
+  fi
+  python3 - <<PY
+from pathlib import Path
+import sys
+run_id = "${RUN_ID}"
+root = "${ROOT}"
+path = Path(".opencode/workflow/daemon.log")
+if not path.exists():
+    sys.exit(0)
+with path.open('r', encoding='utf-8', errors='ignore') as f:
+    lines = f.readlines()
+indices = [i for i, line in enumerate(lines) if f"[pipeline] start" in line and f"run_id={run_id}" in line and f"root={root}" in line]
+if not indices:
+    sys.exit(0)
+start = indices[0]
+sys.stdout.write("".join(lines[start:]))
+PY
+}
+
 trigger_flood() {
   echo "[TEST] Triggering flood (10x)..."
   for i in {1..10}; do
@@ -130,26 +194,11 @@ trigger_flood() {
 }
 
 setup_oc_stub() {
-  if [[ "$MODE" != "infra" ]]; then
-    return 0
-  fi
-  OC_STUB_PATH="$WF/oc_stub"
-  mkdir -p "$OC_STUB_PATH"
-  cat > "$OC_STUB_PATH/oc" <<'PY'
-#!/usr/bin/env python3
-import sys
-if __name__ == "__main__":
-    print("ACK")
-    sys.exit(0)
-PY
-  chmod +x "$OC_STUB_PATH/oc"
-  export PATH="$OC_STUB_PATH:$PATH"
+  return 0
 }
 
 teardown_oc_stub() {
-  if [[ -n "$OC_STUB_PATH" ]]; then
-    rm -rf "$OC_STUB_PATH"
-  fi
+  return 0
 }
 
 wait_for_infra_milestones() {
@@ -167,9 +216,9 @@ wait_for_infra_milestones() {
       break
     fi
 
-    window_content=$(log_window)
+    window_content=$(log_window_run)
 
-    if [[ $INFRA_START -eq 0 ]] && echo "$window_content" | grep -aq "\[pipeline\] start\|\[pipeline\] run role=orchestrator"; then
+    if [[ $INFRA_START -eq 0 ]] && echo "$window_content" | grep -aq "\[pipeline\] start"; then
       INFRA_START=1
       echo "[PROG] Pipeline start detected."
     fi
@@ -231,26 +280,39 @@ test_single_flight_deterministic() {
     rm -f "$test_log"
     return 1
   fi
-  if log_window | grep -aq "another run is active, exiting"; then
+  if grep -aq "another run is active, exiting" "$test_log" || log_window_run | grep -aq "another run is active, exiting"; then
     echo "PASS: Single-flight contention detected in log."
-    rm -f "$test_log"
-    return 0
-  fi
-  if grep -aq "another run is active, exiting" "$test_log"; then
-    echo "PASS: Single-flight contention detected in pipeline output."
     rm -f "$test_log"
     return 0
   fi
   echo "FAIL: No single-flight contention detected in log/output."
   rm -f "$test_log"
   return 1
+
 }
 
 check_artifacts_infra() {
-  if [[ ! -s "$WF/02_EXECUTOR_REPORT.md" ]]; then
-    echo "FAIL: Artifact 02_EXECUTOR_REPORT.md missing or empty."
+  local start_ts
+  start_ts=$(date +%s)
+  if [[ $PRE_EXEC_REPORT_EMPTY -eq 1 ]]; then
+    echo "INFRA FAIL: 02_EXECUTOR_REPORT.md missing or empty"
     return 1
   fi
+  while true; do
+    if [[ -s "$WF/02_EXECUTOR_REPORT.md" ]]; then
+      break
+    fi
+    if (( $(date +%s) - start_ts >= 20 )); then
+      echo "INFRA FAIL: 02_EXECUTOR_REPORT.md missing or empty"
+      return 1
+    fi
+    sleep 1
+  done
+  for f in 03_CRITIC_REPORT.md 04_AUDITOR_REPORT.md 05_ARCH_FINAL_REPORT.md; do
+    if [[ ! -s "$WF/$f" ]]; then
+      echo "[selftest] WARNING: Artifact $f missing or empty in infra mode."
+    fi
+  done
   return 0
 }
 
@@ -266,7 +328,7 @@ check_artifacts_green() {
 }
 
 check_forbidden() {
-  if log_window | grep -aqE "Permission required|Terminated|opencode run \[message\.\.\]|ERROR.*rc=0"; then
+  if log_window_run | grep -aqE "Permission required|Terminated|opencode run \[message\.\.\]|ERROR.*rc=0"; then
     echo "FAIL: Forbidden patterns found in current log window."
     return 1
   fi
@@ -274,11 +336,9 @@ check_forbidden() {
 }
 
 check_single_flight() {
-  if log_window | grep -aq "another run is active, exiting"; then
-    echo "PASS: Single-flight contention detected in log."
+  if log_window_run | grep -aq "another run is active, exiting"; then
     return 0
   fi
-  echo "FAIL: No single-flight contention detected in log."
   return 1
 }
 
@@ -287,7 +347,9 @@ check_single_flight() {
 backup_state
 cleanup_state
 snapshot_issues_prefix
+snapshot_dialogue_prefix
 
+DAEMON_WAS_RUNNING=0
 if [[ $DESTRUCTIVE -eq 0 ]] && "$WF/daemon_ctl.sh" status | grep -q "running"; then
   DAEMON_WAS_RUNNING=1
   "$WF/daemon_ctl.sh" stop >/dev/null 2>&1 || true
@@ -301,48 +363,103 @@ fi
 setup_oc_stub
 prepare_log_window
 
-echo "OPENCODE TEAM VERSION: ${TEAM_VERSION}"
-echo "=== SELFTEST v2.1 START: $(date -Is) ==="
-echo "ROOT=$ROOT"
-echo "MODE=$MODE"
-echo "DESTRUCTIVE=$DESTRUCTIVE"
-echo "WAIT=$TIMEOUT"
-
-if [[ "$MODE" == "infra" ]]; then
-  set +e
-  timeout "$TIMEOUT" bash "$WF/pipeline.sh" >/dev/null 2>&1
-  local_rc=$?
-  set -e
-  if [[ $local_rc -eq 124 ]]; then
-    echo "TIMEOUT reached."
+  RUN_ID="$(date +%Y%m%d_%H%M%S)_${RANDOM}"
+  RUN_ID_FILE="$WF/.selftest_run_id"
+  echo "SELFTEST_RUN_ID=$RUN_ID" > "$RUN_ID_FILE"
+  RUN_ID_LINE="[pipeline] run_id=$RUN_ID"
+  if [[ -f "$WF/02_EXECUTOR_REPORT.md" && ! -s "$WF/02_EXECUTOR_REPORT.md" ]]; then
+    PRE_EXEC_REPORT_EMPTY=1
   fi
-  wait_for_infra_milestones
-  test_single_flight_deterministic
-else
-  trigger_flood
-  wait_for_infra_milestones
+
+  echo "OPENCODE TEAM VERSION: ${TEAM_VERSION}"
+  if command -v oc >/dev/null 2>&1; then
+    OC_VERSION=$(oc --version 2>/dev/null | head -n 1 | tr -d '\r')
+    echo "OC VERSION: ${OC_VERSION:-unknown}"
+  else
+    echo "FAIL: oc not found in PATH"
+    if [[ "$MODE" == "infra" ]]; then
+      echo "SELFTEST FAIL: INFRA"
+    else
+      echo "SELFTEST FAIL: GREEN"
+    fi
+    exit 1
+  fi
+  if command -v oc >/dev/null 2>&1; then
+    OPENCODE_VERSION=$(oc opencode --version 2>/dev/null | head -n 1 | tr -d '\r')
+    if [[ -z "$OPENCODE_VERSION" ]]; then
+      OPENCODE_VERSION="$TEAM_VERSION"
+    fi
+  else
+    OPENCODE_VERSION="$TEAM_VERSION"
+  fi
+  if [[ -z "$OPENCODE_VERSION" ]]; then
+    OPENCODE_VERSION="unknown"
+  fi
+  echo "OPENCODE VERSION: ${OPENCODE_VERSION}"
+
+  echo "=== SELFTEST v2.1 START: $(date -Is) ==="
+  echo "ROOT=$ROOT"
+  echo "MODE=$MODE"
+  echo "DESTRUCTIVE=$DESTRUCTIVE"
+  echo "WAIT=$TIMEOUT"
+  echo "RUN_ID=$RUN_ID"
+
+  EXIT_CODE=0
+  if [[ "$MODE" == "infra" ]]; then
+    set +e
+    RUN_ID="$RUN_ID" OPENCODE_SELFTEST_STUB=1 bash "$WF/pipeline.sh" >/dev/null 2>&1
+    local_rc=$?
+    set -e
+    if [[ $local_rc -ne 0 ]]; then
+      echo "FAIL: pipeline returned rc=$local_rc"
+      EXIT_CODE=1
+    fi
+    wait_for_infra_milestones
+    if ! test_single_flight_deterministic; then EXIT_CODE=1; fi
+  else
+    trigger_flood
+    wait_for_infra_milestones
+  fi
+
+
+
+if ! log_window_run | grep -aq "\[pipeline\] start"; then
+  echo "FAIL: run_id/root start marker not found in log."
+  EXIT_CODE=1
 fi
 
 if [[ "$MODE" == "green" && $APPROVED -eq 0 ]]; then
   echo "FAIL: approved, done not found."
   echo "FAIL: 05 ignored because not from current run."
+  EXIT_CODE=1
 fi
 
-EXIT_CODE=0
 if ! check_forbidden; then EXIT_CODE=1; fi
 if ! check_issues_prefix; then EXIT_CODE=1; fi
+if ! check_dialogue_prefix; then EXIT_CODE=1; fi
 
-if [[ "$MODE" == "infra" ]]; then
+  if [[ "$MODE" == "infra" ]]; then
   if [[ $INFRA_START -eq 0 || $INFRA_ORCH_DONE -eq 0 || $INFRA_EXEC_DONE -eq 0 ]]; then EXIT_CODE=1; fi
-  if ! check_single_flight; then EXIT_CODE=1; fi
   if ! check_artifacts_infra; then EXIT_CODE=1; fi
-  if [[ $EXIT_CODE -eq 0 ]]; then echo "SELFTEST PASS: INFRA"; else echo "SELFTEST FAIL: INFRA"; fi
+  if [[ $EXIT_CODE -eq 0 ]]; then
+    echo "SELFTEST PASS: INFRA"
+  else
+    echo "SELFTEST FAIL: INFRA"
+  fi
+
 elif [[ "$MODE" == "green" ]]; then
   if [[ $APPROVED -eq 0 ]]; then EXIT_CODE=1; fi
   if [[ $APPROVED -eq 1 ]]; then
     if ! check_artifacts_green; then EXIT_CODE=1; fi
   fi
-  if [[ $EXIT_CODE -eq 0 ]]; then echo "SELFTEST PASS: GREEN"; else echo "SELFTEST FAIL: GREEN"; fi
+  if [[ $EXIT_CODE -eq 0 ]]; then
+    echo "SELFTEST PASS: GREEN"
+  else
+    echo "SELFTEST FAIL: GREEN"
+  fi
+else
+  echo "SELFTEST FAIL: INFRA"
+  EXIT_CODE=1
 fi
 
 teardown_oc_stub

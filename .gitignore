@@ -1,1 +1,11 @@
 .env
+.opencode/workflow/daemon.log
+.opencode/workflow/.daemon.pid
+.opencode/workflow/.lock
+.opencode/workflow/.pm_request_hash
+.opencode/workflow/.step_*.log
+.opencode/workflow/_selftest_backup/
+.opencode/workflow/0[1-5]_*.md
+.opencode/workflow/.selftest_run_id
+.opencode/workflow/.runtime/
+_selftest_backup/

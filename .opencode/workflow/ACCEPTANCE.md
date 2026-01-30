@@ -7,7 +7,7 @@ INFRA validates infrastructure only and must be fast/deterministic.
 
 **Pass criteria (all must be true in current log window):**
 1. **Pipeline milestones:**
-   - `[pipeline] start` (or `[pipeline] run role=orchestrator`)
+   - `[pipeline] start run_id=<id> root=<abs_root>`
    - `done role=orchestrator`
    - `done role=executor`
 2. **Single-flight proof:** at least one `[pipeline] another run is active, exiting`.
@@ -17,6 +17,8 @@ INFRA validates infrastructure only and must be fast/deterministic.
    - `opencode run [message..]`
    - `ERROR.*rc=0`
 4. **Artifact check:** `.opencode/workflow/02_EXECUTOR_REPORT.md` exists and size > 0.
+
+**Runtime UX requirement:** `00_PM_REQUEST.md` must exist after install (may be empty) and is never modified by selftest/cleanup.
 
 ### GREEN (optional / nightly)
 GREEN validates content (approval) and is not a CI gate.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 WF=".opencode/workflow"
-PIDFILE="$WF/daemon.pid"
+PIDFILE="$WF/.daemon.pid"
 LOG="$WF/daemon.log"
 
 cmd="${1:-}"

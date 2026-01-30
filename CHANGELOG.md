@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.01.30
+
+### Added
+- Runner-safe INFRA contract: 02 report required, run_id/root log API, and global club launcher.
+- Installer guarantee for 00_PM_REQUEST.md.
+
+### Changed
+- Pipeline log start includes run_id and root for deterministic selftest gating.
+- Runtime artifacts removed from template tracking and ignored by git.
+
 ## 2026.01.29
 
 ### Added

@@ -17,7 +17,7 @@ hash_file() {
   fi
 }
 
-echo "[daemon] start project=$ROOT $(date -Is)" >> "$LOG"
+echo "[daemon] start project=$ROOT pid=$$" >> "$LOG"
 
 while true; do
   if [[ -f "$WF/00_PM_REQUEST.md" ]]; then

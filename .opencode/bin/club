@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "$0")"
+SCRIPT_ROOT="$(dirname "$(dirname "$(dirname "$SCRIPT_PATH")")")"
+
+find_root() {
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -d "$dir/.opencode/workflow" ]]; then
+      echo "$dir"
+      return 0
+    fi
+    dir=$(dirname "$dir")
+  done
+  if [[ -d "/.opencode/workflow" ]]; then
+    echo "/"
+    return 0
+  fi
+  return 1
+}
+
+ROOT="$(find_root 2>/dev/null || true)"
+if [[ -z "$ROOT" ]]; then
+  ROOT="$SCRIPT_ROOT"
+fi
+
+if [[ ! -d "$ROOT/.opencode/workflow" ]]; then
+  echo "FAIL: workflow directory not found: $ROOT/.opencode/workflow"
+  echo "Install opencode and run from project tree."
+  exit 1
+fi
+
+WF="$ROOT/.opencode/workflow"
+LOG="$WF/daemon.log"
+PIDFILE="$WF/.daemon.pid"
+SELFTEST=0
+
+usage() {
+  cat <<'EOF'
+Usage: club <command> [options]
+
+Commands:
+  start [1]
+  stop
+  status
+  logs [--follow]
+  selftest
+
+Options:
+  1           Run INFRA selftest before start
+  --follow    Follow logs (tail -f)
+EOF
+}
+
+require_tools() {
+  local missing=0
+  local tools=(bash flock timeout grep oc)
+  for tool in "${tools[@]}"; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      echo "FAIL: missing required tool: $tool"
+      missing=1
+    fi
+  done
+  if [[ $missing -ne 0 ]]; then
+    exit 1
+  fi
+}
+
+ensure_workflow() {
+  if [[ ! -d "$WF" ]]; then
+    echo "FAIL: workflow directory not found: $WF"
+    exit 1
+  fi
+  mkdir -p "$WF"
+  touch "$LOG"
+}
+
+is_running() {
+  if [[ -f "$PIDFILE" ]]; then
+    local pid
+    pid=$(cat "$PIDFILE")
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+start_daemon() {
+  ensure_workflow
+  if is_running; then
+    echo "already running"
+    exit 0
+  fi
+  if [[ $SELFTEST -eq 1 ]]; then
+    bash "$WF/selftest.sh" --mode infra --wait 900
+  else
+    echo "NOTE: selftest skipped. Run 'club selftest' to verify infra."
+  fi
+  nohup "$WF/daemon.sh" >/dev/null 2>&1 &
+  local pid=$!
+  echo "$pid" > "$PIDFILE"
+  echo "[daemon] start project=$ROOT pid=$pid" >> "$LOG"
+  echo "started pid=$pid"
+  echo "log: $LOG"
+}
+
+stop_daemon() {
+  ensure_workflow
+  if [[ ! -f "$PIDFILE" ]]; then
+    echo "not running"
+    exit 0
+  fi
+  local pid
+  pid=$(cat "$PIDFILE")
+  if [[ -z "$pid" ]]; then
+    echo "not running"
+    rm -f "$PIDFILE"
+    exit 0
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    for _ in {1..10}; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.5
+    done
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "FAIL: process still running pid=$pid"
+    exit 1
+  fi
+  rm -f "$PIDFILE"
+  echo "stopped pid=$pid"
+}
+
+status_daemon() {
+  ensure_workflow
+  if is_running; then
+    local pid
+    pid=$(cat "$PIDFILE")
+    local last
+    last=$(tail -n 1 "$LOG" 2>/dev/null || echo "")
+    echo "running pid=$pid root=$ROOT"
+    echo "last_log=${last}"
+    return 0
+  fi
+  echo "not running root=$ROOT"
+}
+
+logs_daemon() {
+  ensure_workflow
+  if [[ "${1:-}" == "--follow" ]]; then
+    tail -n 200 -f "$LOG"
+  else
+    tail -n 200 "$LOG"
+  fi
+}
+
+case "${1:-}" in
+  start)
+    shift
+    if [[ "${1:-}" == "1" ]]; then
+      SELFTEST=1
+      shift
+    fi
+    require_tools
+    start_daemon
+    ;;
+  stop)
+    stop_daemon
+    ;;
+  status)
+    status_daemon
+    ;;
+  logs)
+    shift
+    logs_daemon "${1:-}"
+    ;;
+  selftest)
+    ensure_workflow
+    bash "$WF/selftest.sh" --mode infra --wait 900
+    ;;
+  --help|-h|help|"")
+    usage
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+ esac
