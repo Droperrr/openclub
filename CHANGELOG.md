@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.01.31-brainstorm.6
+
+### Added
+- Persistent CONTEXT.md with sha256 recorded in META.
+- `--no-context` flag for brainstorm CLI.
+- Model presets reference with available model IDs.
+
+### Changed
+- Runner writes 00_PROMPT.md with optional Context block.
+
 ## 2026.01.31-brainstorm.5
 
 ### Added
