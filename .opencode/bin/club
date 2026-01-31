@@ -47,11 +47,14 @@ Commands:
   logs [--follow]
   selftest
   ask "<text>"
-  brainstorm "<text>"
+  brainstorm [--quiet] [--tail N] "<text>"
 
 Options:
   1           Run INFRA selftest before start
   --follow    Follow logs (tail -f)
+  --quiet     Brainstorm: suppress transcript output
+  --tail N    Brainstorm: print last N lines
+  --no-color  Brainstorm: disable color output
 EOF
 }
 
@@ -97,24 +100,77 @@ ask_request() {
 
 brainstorm_request() {
   ensure_workflow
-  local text="$1"
+  local quiet=0
+  local tail_lines=""
+  local no_color=0
+  local text=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --quiet)
+        quiet=1
+        shift
+        ;;
+      --tail)
+        if [[ -z "${2:-}" ]]; then
+          echo "FAIL: --tail requires a number"
+          exit 1
+        fi
+        if ! [[ "$2" =~ ^[0-9]+$ ]]; then
+          echo "FAIL: --tail expects a number"
+          exit 1
+        fi
+        tail_lines="$2"
+        shift 2
+        ;;
+      --no-color)
+        no_color=1
+        shift
+        ;;
+      --*)
+        echo "FAIL: unknown option $1"
+        exit 1
+        ;;
+      *)
+        text="${*:1}"
+        break
+        ;;
+    esac
+  done
+
   if [[ -z "$text" ]]; then
     echo "FAIL: brainstorm requires text"
     exit 1
   fi
+
   local session_id
   session_id="$(date +%Y%m%d_%H%M%S)_${RANDOM}"
   local session_dir="$WF/brainstorm/sessions/$session_id"
   mkdir -p "$session_dir"
   printf "# Brainstorm Prompt\nsession_id=%s\nroot=%s\n\n%s\n" "$session_id" "$ROOT" "$text" > "$session_dir/00_PROMPT.md"
   echo "[brainstorm] start session_id=$session_id root=$ROOT" >> "$LOG"
-  if "$WF/brainstorm_runner.sh" "$session_id" "$session_dir" "$text" >> "$LOG" 2>&1; then
+
+  local runner_args=("$session_id" "$session_dir" "$text")
+  if [[ $quiet -eq 1 ]]; then
+    runner_args+=("--quiet")
+  fi
+  if [[ -n "$tail_lines" ]]; then
+    runner_args+=("--tail" "$tail_lines")
+  fi
+  if [[ $no_color -eq 1 ]]; then
+    runner_args+=("--no-color")
+  fi
+
+  if "$WF/brainstorm_runner.sh" "${runner_args[@]}"; then
     local meta_file="$session_dir/01_META.md"
     local model_a
     local model_b
     model_a=$(grep -E '^modelA=' "$meta_file" | head -n 1 | sed 's/^modelA=//')
     model_b=$(grep -E '^modelB=' "$meta_file" | head -n 1 | sed 's/^modelB=//')
     echo "OK: brainstorm session_id=$session_id modelA=$model_a modelB=$model_b"
+    if [[ $quiet -eq 1 ]]; then
+      echo "OK: transcript $session_dir/99_TRANSCRIPT.md"
+    fi
   else
     echo "FAIL: brainstorm runner failed session_id=$session_id"
     exit 1
@@ -234,7 +290,7 @@ case "${1:-}" in
     ;;
   brainstorm)
     shift
-    brainstorm_request "${*:-}"
+    brainstorm_request "$@"
     ;;
   --help|-h|help|"")
     usage

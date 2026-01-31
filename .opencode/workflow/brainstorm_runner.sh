@@ -4,11 +4,46 @@ set -euo pipefail
 SESSION_ID="${1:?session id required}"
 SESSION_DIR="${2:?session dir required}"
 PROMPT_TEXT="${3:?prompt text required}"
+PRINT_TRANSCRIPT=1
+TAIL_LINES=""
+NO_COLOR=0
 
 ROOT="$(pwd)"
 WF="$ROOT/.opencode/workflow"
 LOG="$WF/daemon.log"
 CONFIG_FILE="$ROOT/.opencode/config/brainstorm.yml"
+
+if [[ $# -gt 3 ]]; then
+  shift 3
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --quiet)
+        PRINT_TRANSCRIPT=0
+        shift
+        ;;
+      --tail)
+        if [[ -z "${2:-}" ]]; then
+          echo "FAIL: --tail requires a number" >&2
+          exit 1
+        fi
+        if ! [[ "$2" =~ ^[0-9]+$ ]]; then
+          echo "FAIL: --tail expects a number" >&2
+          exit 1
+        fi
+        TAIL_LINES="$2"
+        shift 2
+        ;;
+      --no-color)
+        NO_COLOR=1
+        shift
+        ;;
+      *)
+        echo "FAIL: unknown option $1" >&2
+        exit 1
+        ;;
+    esac
+  done
+fi
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "FAIL: brainstorm config not found: $CONFIG_FILE" >&2
@@ -290,5 +325,15 @@ fi
 printf "### [moderator]\n\n" >> "$TRANSCRIPT_FILE"
 cat "$SYNTHESIS_FILE" >> "$TRANSCRIPT_FILE"
 printf "\n" >> "$TRANSCRIPT_FILE"
+
+if [[ $PRINT_TRANSCRIPT -eq 1 ]]; then
+  echo "----- BEGIN BRAINSTORM session_id=$SESSION_ID -----"
+  if [[ -n "$TAIL_LINES" ]]; then
+    tail -n "$TAIL_LINES" "$TRANSCRIPT_FILE"
+  else
+    cat "$TRANSCRIPT_FILE"
+  fi
+  echo "----- END BRAINSTORM -----"
+fi
 
 echo "[brainstorm] done session_id=$SESSION_ID" >> "$LOG"
