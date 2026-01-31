@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PROMPT_TEXT="${1:?prompt text required}"
+shift
 
 ROOT="$(pwd)"
 WF="$ROOT/.opencode/workflow"
@@ -20,7 +21,7 @@ printf "# Brainstorm Prompt\nsession_id=%s\nroot=%s\n\n%s\n" "$SESSION_ID" "$ROO
 
 echo "[brainstorm] start session_id=$SESSION_ID root=$ROOT" >> "$LOG"
 
-if "$WF/brainstorm_runner.sh" "$SESSION_ID" "$SESSION_DIR" "$PROMPT_TEXT"; then
+if "$WF/brainstorm_runner.sh" "$SESSION_ID" "$SESSION_DIR" "$PROMPT_TEXT" "${@:2}"; then
   :
 else
   echo "FAIL: brainstorm runner failed session_id=$SESSION_ID" >&2

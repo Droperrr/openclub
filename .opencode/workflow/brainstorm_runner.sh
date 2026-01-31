@@ -7,6 +7,7 @@ PROMPT_TEXT="${3:?prompt text required}"
 PRINT_TRANSCRIPT=1
 TAIL_LINES=""
 NO_COLOR=0
+USE_CONTEXT=1
 
 ROOT="$(pwd)"
 WF="$ROOT/.opencode/workflow"
@@ -35,6 +36,10 @@ if [[ $# -gt 3 ]]; then
         ;;
       --no-color)
         NO_COLOR=1
+        shift
+        ;;
+      --no-context)
+        USE_CONTEXT=0
         shift
         ;;
       *)
@@ -75,6 +80,10 @@ DEFAULT_TIMEOUT_SEC=""
 DEFAULT_MAX_ATTEMPTS=""
 SYNTHESIS_MIN_CHARS=""
 SYNTHESIS_PROMPT=""
+CONTEXT_FILE=""
+CONTEXT_ENABLED=0
+CONTEXT_SHA256=""
+CONTEXT_BLOCK=""
 
 ROUND_NAMES=()
 ROUND_ENABLED=()
@@ -280,6 +289,21 @@ MODEL_B_LABEL_ID="${MODEL_B_CONFIG:-NONE}"
 
 mkdir -p "$SESSION_DIR"
 
+CONTEXT_FILE="$WF/brainstorm/CONTEXT.md"
+if [[ $USE_CONTEXT -eq 1 && -f "$CONTEXT_FILE" ]]; then
+  CONTEXT_TEXT="$(cat "$CONTEXT_FILE")"
+  if [[ -n "${CONTEXT_TEXT//[[:space:]]/}" ]]; then
+    CONTEXT_ENABLED=1
+    if command -v sha256sum >/dev/null 2>&1; then
+      CONTEXT_SHA256=$(sha256sum "$CONTEXT_FILE" | awk '{print $1}')
+    else
+      CONTEXT_SHA256=$(shasum -a 256 "$CONTEXT_FILE" | awk '{print $1}')
+    fi
+    CONTEXT_BLOCK="## Context\n\n${CONTEXT_TEXT}\n\n"
+  fi
+fi
+
+
 STARTED_AT="$(date -Is)"
 META_FILE="$SESSION_DIR/01_META.md"
 {
@@ -295,7 +319,26 @@ META_FILE="$SESSION_DIR/01_META.md"
   fi
   printf "min_length_chars=%s\n" "$DEFAULT_MIN_LENGTH"
   printf "synthesis_min_chars=%s\n" "$SYNTHESIS_MIN_CHARS"
+  if [[ $CONTEXT_ENABLED -eq 1 ]]; then
+    printf "context_file=%s\n" "$CONTEXT_FILE"
+    printf "context_enabled=1\n"
+    printf "context_sha256=%s\n" "$CONTEXT_SHA256"
+  else
+    printf "context_file=NONE\n"
+    printf "context_enabled=0\n"
+  fi
 } > "$META_FILE"
+
+PROMPT_FILE="$SESSION_DIR/00_PROMPT.md"
+{
+  printf "# Brainstorm Prompt\n"
+  printf "session_id=%s\n" "$SESSION_ID"
+  printf "root=%s\n\n" "$ROOT"
+  if [[ $CONTEXT_ENABLED -eq 1 ]]; then
+    printf "## Context\n\n%s\n\n" "$CONTEXT_TEXT"
+  fi
+  printf "%s\n" "$PROMPT_TEXT"
+} > "$PROMPT_FILE"
 
 run_with_prompt() {
   local model_id="$1"
@@ -352,7 +395,7 @@ run_role_model() {
     return 0
   fi
 
-  prompt="Role: ${role_name}. ${role_prompt}\nMinimum length: ${min_len} characters. Do not respond with acknowledgements. Provide 3-5 ideas, risks, and recommendations.\n\nPrompt:\n${PROMPT_TEXT}\n"
+  prompt="Role: ${role_name}. ${role_prompt}\nMinimum length: ${min_len} characters. Do not respond with acknowledgements. Provide 3-5 ideas, risks, and recommendations.\n\n${CONTEXT_BLOCK}Prompt:\n${PROMPT_TEXT}\n"
 
   echo "[brainstorm] round=$round_name role=$role_name model_id=$model_id start" >> "$LOG"
   if run_with_prompt "$model_id" "$prompt" "$output_file"; then
@@ -427,7 +470,7 @@ for idx in "${!ROUND_NAMES[@]}"; do
 done
 
 SYNTHESIS_FILE="$SESSION_DIR/90_SYNTHESIS.md"
-SYNTH_PROMPT="Role: moderator. ${SYNTHESIS_PROMPT}\nMinimum length: ${SYNTHESIS_MIN_CHARS} characters. Use the transcript below.\n\nTranscript:\n"
+SYNTH_PROMPT="Role: moderator. ${SYNTHESIS_PROMPT}\nMinimum length: ${SYNTHESIS_MIN_CHARS} characters. Use the transcript below.\n\n${CONTEXT_BLOCK}Transcript:\n"
 SYNTH_PROMPT+="$(cat "$TRANSCRIPT_FILE")"
 SYNTH_PROMPT+="\n\nWrite only the synthesis."
 

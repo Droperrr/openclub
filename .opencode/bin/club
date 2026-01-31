@@ -47,13 +47,14 @@ Commands:
   logs [--follow]
   selftest
   ask "<text>"
-  brainstorm [--quiet] [--tail N] "<text>"
+  brainstorm [--quiet] [--tail N] [--no-context] "<text>"
 
 Options:
   1           Run INFRA selftest before start
   --follow    Follow logs (tail -f)
   --quiet     Brainstorm: suppress transcript output
   --tail N    Brainstorm: print last N lines
+  --no-context Brainstorm: ignore CONTEXT.md
   --no-color  Brainstorm: disable color output
 EOF
 }
@@ -103,6 +104,7 @@ brainstorm_request() {
   local quiet=0
   local tail_lines=""
   local no_color=0
+  local no_context=0
   local text=""
 
   while [[ $# -gt 0 ]]; do
@@ -125,6 +127,10 @@ brainstorm_request() {
         ;;
       --no-color)
         no_color=1
+        shift
+        ;;
+      --no-context)
+        no_context=1
         shift
         ;;
       --*)
@@ -159,6 +165,9 @@ brainstorm_request() {
   fi
   if [[ $no_color -eq 1 ]]; then
     runner_args+=("--no-color")
+  fi
+  if [[ $no_context -eq 1 ]]; then
+    runner_args+=("--no-context")
   fi
 
   if "$WF/brainstorm_runner.sh" "${runner_args[@]}"; then
