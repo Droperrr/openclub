@@ -47,6 +47,7 @@ Commands:
   logs [--follow]
   selftest
   ask "<text>"
+  brainstorm "<text>"
 
 Options:
   1           Run INFRA selftest before start
@@ -92,6 +93,32 @@ ask_request() {
   printf "# Chat Request\nrun_id=%s\nroot=%s\n\n%s\n" "$run_id" "$ROOT" "$text" > "$request_file"
   RUN_ID="$run_id" "$WF/pipeline.sh" >/dev/null 2>&1 &
   echo "OK: queued request run_id=$run_id"
+}
+
+brainstorm_request() {
+  ensure_workflow
+  local text="$1"
+  if [[ -z "$text" ]]; then
+    echo "FAIL: brainstorm requires text"
+    exit 1
+  fi
+  local session_id
+  session_id="$(date +%Y%m%d_%H%M%S)_${RANDOM}"
+  local session_dir="$WF/brainstorm/sessions/$session_id"
+  mkdir -p "$session_dir"
+  printf "# Brainstorm Prompt\nsession_id=%s\nroot=%s\n\n%s\n" "$session_id" "$ROOT" "$text" > "$session_dir/00_PROMPT.md"
+  echo "[brainstorm] start session_id=$session_id root=$ROOT" >> "$LOG"
+  if "$WF/brainstorm_runner.sh" "$session_id" "$session_dir" "$text" >> "$LOG" 2>&1; then
+    local meta_file="$session_dir/01_META.md"
+    local model_a
+    local model_b
+    model_a=$(grep -E '^modelA=' "$meta_file" | head -n 1 | sed 's/^modelA=//')
+    model_b=$(grep -E '^modelB=' "$meta_file" | head -n 1 | sed 's/^modelB=//')
+    echo "OK: brainstorm session_id=$session_id modelA=$model_a modelB=$model_b"
+  else
+    echo "FAIL: brainstorm runner failed session_id=$session_id"
+    exit 1
+  fi
 }
 
 is_running() {
@@ -204,6 +231,10 @@ case "${1:-}" in
   ask)
     shift
     ask_request "${*:-}"
+    ;;
+  brainstorm)
+    shift
+    brainstorm_request "${*:-}"
     ;;
   --help|-h|help|"")
     usage
