@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.01.31-brainstorm.1
+
+### Added
+- Brainstorm config file for roles, models, and output length thresholds.
+- Brainstorm runner that writes META, role outputs, synthesis, and transcript.
+- `club brainstorm` command with session metadata reporting.
+
+### Changed
+- Brainstorm artifacts are written under workflow/brainstorm sessions with model IDs.
+
 ## 2026.01.31
 
 ### Added
