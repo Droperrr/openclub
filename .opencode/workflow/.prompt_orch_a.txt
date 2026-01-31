@@ -2,5 +2,9 @@ MODE A (Generate tasks) [iter=5]:
 Read .opencode/workflow/00_PM_REQUEST.md and STRATEGY_KNOWLEDGE_BASE.md.
 Also read .opencode/workflow/ISSUES.md and .opencode/workflow/DIALOGUE.md (latest state).
 Load skills: strategy-knowledge-base, stage1-spec, orchestration-protocol.
-Write TASKS+COLLECT to .opencode/workflow/01_ARCH_TASKS.md.
+If 00_PM_REQUEST.md starts with 'brainstorm:' or '/brainstorm', treat it as a brainstorm trigger:
+- Extract the text after the prefix.
+- Run: bash .opencode/workflow/brainstorm_chat.sh "<text>"
+- In chat: output the command stdout only (no extra text).
+Otherwise: write TASKS+COLLECT to .opencode/workflow/01_ARCH_TASKS.md.
 In chat: ACK only.

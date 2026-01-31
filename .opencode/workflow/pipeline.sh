@@ -53,6 +53,36 @@ if [[ "${OPENCODE_CHAT_ONLY:-0}" == "1" ]]; then
   CHAT_MODE=1
 fi
 
+extract_chat_body() {
+  sed -n '1,/^$/d;p' "$WF/00_PM_REQUEST.md"
+}
+
+route_brainstorm_chat() {
+  local body
+  body="$(extract_chat_body)"
+  if [[ -z "$body" ]]; then
+    return 1
+  fi
+
+  local trimmed="$body"
+  trimmed="${trimmed#${trimmed%%[![:space:]]*}}"
+
+  local brainstorm_text=""
+  if [[ "$trimmed" == /brainstorm* ]]; then
+    brainstorm_text="${trimmed#/brainstorm}"
+  elif [[ "$trimmed" == brainstorm:* ]]; then
+    brainstorm_text="${trimmed#brainstorm:}"
+  fi
+
+  brainstorm_text="${brainstorm_text#${brainstorm_text%%[![:space:]]*}}"
+  if [[ -z "$brainstorm_text" ]]; then
+    return 1
+  fi
+
+  bash "$WF/brainstorm_chat.sh" "$brainstorm_text"
+  return 0
+}
+
 # Prompts generator
 write_prompts() {
   local iter="$1"
@@ -141,7 +171,12 @@ for ((iter=1; iter<=MAX_ITERS; iter++)); do
   echo "[pipeline] iter=$iter" >> "$LOG"
   write_prompts "$iter"
   
+  if [[ $CHAT_MODE -eq 1 ]] && route_brainstorm_chat; then
+    exit 0
+  fi
+
   run_step orchestrator "$PROMPT_DIR/prompt_orch_a.txt" || exit 2
+
   run_step executor     "$PROMPT_DIR/prompt_exec.txt"   || exit 3
   if [[ $CHAT_MODE -eq 0 ]]; then
     run_step critic       "$PROMPT_DIR/prompt_critic.txt" || exit 4

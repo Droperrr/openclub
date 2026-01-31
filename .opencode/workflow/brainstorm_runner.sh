@@ -336,4 +336,8 @@ if [[ $PRINT_TRANSCRIPT -eq 1 ]]; then
   echo "----- END BRAINSTORM -----"
 fi
 
+BRAINSTORM_ROOT="$WF/brainstorm"
+mkdir -p "$BRAINSTORM_ROOT"
+echo "$SESSION_ID" > "$BRAINSTORM_ROOT/LAST_SESSION"
+
 echo "[brainstorm] done session_id=$SESSION_ID" >> "$LOG"
