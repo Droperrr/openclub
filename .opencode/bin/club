@@ -46,6 +46,7 @@ Commands:
   status
   logs [--follow]
   selftest
+  ask "<text>"
 
 Options:
   1           Run INFRA selftest before start
@@ -74,6 +75,23 @@ ensure_workflow() {
   fi
   mkdir -p "$WF"
   touch "$LOG"
+}
+
+ask_request() {
+  ensure_workflow
+  local text="$1"
+  if [[ -z "$text" ]]; then
+    echo "FAIL: ask requires text"
+    exit 1
+  fi
+  local request_file="$WF/00_PM_REQUEST.md"
+  local run_id_file="$WF/.selftest_run_id"
+  local run_id
+  run_id="$(date +%Y%m%d_%H%M%S)_${RANDOM}"
+  echo "SELFTEST_RUN_ID=$run_id" > "$run_id_file"
+  printf "# Chat Request\nrun_id=%s\nroot=%s\n\n%s\n" "$run_id" "$ROOT" "$text" > "$request_file"
+  RUN_ID="$run_id" "$WF/pipeline.sh" >/dev/null 2>&1 &
+  echo "OK: queued request run_id=$run_id"
 }
 
 is_running() {
@@ -183,6 +201,10 @@ case "${1:-}" in
     ensure_workflow
     bash "$WF/selftest.sh" --mode infra --wait 900
     ;;
+  ask)
+    shift
+    ask_request "${*:-}"
+    ;;
   --help|-h|help|"")
     usage
     ;;
@@ -190,4 +212,5 @@ case "${1:-}" in
     usage
     exit 1
     ;;
- esac
+  esac
+

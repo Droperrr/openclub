@@ -26,12 +26,20 @@ while true; do
 
     if [[ -n "$H" && "$H" != "$PREV" ]]; then
       echo "$H" > "$STATE"
-      echo "[daemon] change detected -> trigger pipeline $(date -Is)" >> "$LOG"
+      local run_id=""
+      if [[ -f "$WF/.selftest_run_id" ]]; then
+        run_id=$(tail -n 1 "$WF/.selftest_run_id" | sed 's/^SELFTEST_RUN_ID=//')
+      fi
+      if [[ -z "$run_id" ]]; then
+        run_id="$(date +%Y%m%d_%H%M%S)_${RANDOM}"
+        echo "SELFTEST_RUN_ID=$run_id" > "$WF/.selftest_run_id"
+      fi
+      echo "[daemon] change detected -> trigger pipeline run_id=$run_id $(date -Is)" >> "$LOG"
       
       # Run pipeline in background. 
       # pipeline.sh manages its own logging to $LOG. 
       # We redirect stdout/stderr of the shell wrapper to /dev/null to avoid lock contention on the log file descriptor from the parent shell.
-      ( cd "$ROOT" && "$WF/pipeline.sh" ) >/dev/null 2>&1 &
+      ( cd "$ROOT" && RUN_ID="$run_id" "$WF/pipeline.sh" ) >/dev/null 2>&1 &
     fi
   fi
   sleep 2

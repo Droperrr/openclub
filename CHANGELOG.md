@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.01.31
+
+### Added
+- Chat-first UX: `club ask` triggers pipeline and logs run_id/root for each run.
+- Executor report now captures real commands/results for chat runs.
+
+### Changed
+- Pipeline chat-mode runs orchestrator→executor only, avoiding manual file edits.
+
 ## 2026.01.30
 
 ### Added

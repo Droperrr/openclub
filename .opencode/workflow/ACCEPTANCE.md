@@ -42,13 +42,20 @@ Selftest backups are written to:
 ## Log API markers (contract)
 
 Selftest relies on these markers in `daemon.log`:
-- `[pipeline] start`
+- `[pipeline] start run_id=<id> root=<abs_root>`
 - `done role=orchestrator`
 - `done role=executor`
 - `done role=critic`
 - `done role=auditor`
 - `[pipeline] another run is active, exiting`
 - `[pipeline] approved, done`
+
+## Chat-first contract
+
+- `club ask "<text>"` must write the request to `.opencode/workflow/00_PM_REQUEST.md` and trigger a new pipeline run.
+- A new run must emit `[pipeline] start run_id=<id> root=<abs_root>` in `daemon.log`.
+- `02_EXECUTOR_REPORT.md` must be updated and non-empty after `club ask` with factual commands/results.
+- `00_PM_REQUEST.md` must exist after install (may be empty) and is not modified by selftest/cleanup.
 
 ## Operations Cheatsheet
 

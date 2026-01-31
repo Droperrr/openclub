@@ -12,25 +12,6 @@ MAX_ITERS="${MAX_ITERS:-5}"
 mkdir -p "$WF"
 mkdir -p "$PROMPT_DIR"
 
-if [[ "${OPENCODE_SELFTEST_STUB:-0}" == "1" ]]; then
-  RUN_ID_VALUE="${RUN_ID:-}"
-  if [[ -z "$RUN_ID_VALUE" ]]; then
-    echo "[pipeline] ERROR run_id missing" >> "$LOG"
-    exit 1
-  fi
-  echo "[pipeline] start run_id=$RUN_ID_VALUE root=$ROOT $(date -Is) max_iters=$MAX_ITERS" >> "$LOG"
-  echo "[pipeline] iter=1" >> "$LOG"
-  echo "[pipeline] run role=orchestrator prompt=stub start $(date -Is)" >> "$LOG"
-  echo "ACK" >> "$LOG"
-  echo "[pipeline] done role=orchestrator $(date -Is)" >> "$LOG"
-  echo "[pipeline] run role=executor prompt=stub start $(date -Is)" >> "$LOG"
-  printf "# Executor Report\n\nSelftest stub report.\n" > "$WF/02_EXECUTOR_REPORT.md"
-  echo "ACK" >> "$LOG"
-  echo "[pipeline] done role=executor $(date -Is)" >> "$LOG"
-  echo "[pipeline] another run is active, exiting $(date -Is)" >> "$LOG"
-  exit 0
-fi
-
 # 1. Lock check
 exec 9>"$WF/.lock"
 if ! flock -n 9; then
@@ -64,6 +45,14 @@ if [[ ! -f "$WF/ISSUES.md" ]]; then
   : > "$WF/ISSUES.md"
 fi
 
+CHAT_MODE=0
+if [[ -f "$WF/00_PM_REQUEST.md" ]] && head -n 1 "$WF/00_PM_REQUEST.md" | grep -q "^# Chat Request"; then
+  CHAT_MODE=1
+fi
+if [[ "${OPENCODE_CHAT_ONLY:-0}" == "1" ]]; then
+  CHAT_MODE=1
+fi
+
 # Prompts generator
 write_prompts() {
   local iter="$1"
@@ -74,14 +63,15 @@ Read .opencode/workflow/00_PM_REQUEST.md and STRATEGY_KNOWLEDGE_BASE.md.
 Also read .opencode/workflow/ISSUES.md and .opencode/workflow/DIALOGUE.md (latest state).
 Load skills: strategy-knowledge-base, stage1-spec, orchestration-protocol.
 Write TASKS+COLLECT to .opencode/workflow/01_ARCH_TASKS.md.
+If request is chat (00_PM_REQUEST starts with # Chat Request), ensure executor instructions reflect that the executor must create root-level files described in the request.
 In chat: ACK only.
 P
 
   cat > "$PROMPT_DIR/prompt_exec.txt" <<P
 [iter=$iter] Executor:
-Read 01_ARCH_TASKS.md + ISSUES.md + DIALOGUE.md.
+Read 01_ARCH_TASKS.md + ISSUES.md + DIALOGUE.md + 00_PM_REQUEST.md.
 Execute ONLY @executor section.
-Write report to 02_EXECUTOR_REPORT.md.
+Write report to 02_EXECUTOR_REPORT.md with commands, outputs, and created files.
 If blocked or needs clarification: write question to DIALOGUE.md (to:@critic or to:@orchestrator) and log an issue in ISSUES.md, then stop.
 In chat: ACK only.
 P
@@ -153,15 +143,22 @@ for ((iter=1; iter<=MAX_ITERS; iter++)); do
   
   run_step orchestrator "$PROMPT_DIR/prompt_orch_a.txt" || exit 2
   run_step executor     "$PROMPT_DIR/prompt_exec.txt"   || exit 3
-  run_step critic       "$PROMPT_DIR/prompt_critic.txt" || exit 4
-  run_step auditor      "$PROMPT_DIR/prompt_auditor.txt" || exit 5
+  if [[ $CHAT_MODE -eq 0 ]]; then
+    run_step critic       "$PROMPT_DIR/prompt_critic.txt" || exit 4
+    run_step auditor      "$PROMPT_DIR/prompt_auditor.txt" || exit 5
+  fi
 
-  V="$(critic_verdict)"
-  echo "[pipeline] iter=$iter critic_verdict='${V}'" >> "$LOG"
+  if [[ $CHAT_MODE -eq 0 ]]; then
+    V="$(critic_verdict)"
+    echo "[pipeline] iter=$iter critic_verdict='${V}'" >> "$LOG"
 
-  if echo "$V" | grep -qi 'approve'; then
-    run_step orchestrator "$PROMPT_DIR/prompt_orch_b.txt"
-    echo "[pipeline] approved, done $(date -Is)" >> "$LOG"
+    if echo "$V" | grep -qi 'approve'; then
+      run_step orchestrator "$PROMPT_DIR/prompt_orch_b.txt"
+      echo "[pipeline] approved, done $(date -Is)" >> "$LOG"
+      exit 0
+    fi
+  else
+    echo "[pipeline] iter=$iter critic_verdict='skipped'" >> "$LOG"
     exit 0
   fi
   
@@ -169,7 +166,10 @@ for ((iter=1; iter<=MAX_ITERS; iter++)); do
 done
 
 # Max iters reached
-write_prompts "$MAX_ITERS"
-run_step orchestrator "$PROMPT_DIR/prompt_orch_b.txt"
-echo "[pipeline] max iters reached, final report written $(date -Is)" >> "$LOG"
-exit 1
+if [[ $CHAT_MODE -eq 0 ]]; then
+  write_prompts "$MAX_ITERS"
+  run_step orchestrator "$PROMPT_DIR/prompt_orch_b.txt"
+  echo "[pipeline] max iters reached, final report written $(date -Is)" >> "$LOG"
+  exit 1
+fi
+exit 0
