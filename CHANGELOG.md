@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.01.31-brainstorm.5
+
+### Added
+- Config-driven rounds, roles, and prompts in `brainstorm.yml`.
+- Per-round files and transcript sections with round headers.
+- Brainstorm log markers now include full `model_id` values.
+- Graceful degrade for missing modelB and short outputs.
+
+### Changed
+- Runner uses round-aware prompts and synthesis settings from config.
+
 ## 2026.01.31-brainstorm.4
 
 ### Added
