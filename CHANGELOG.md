@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.01.31-brainstorm.4
+
+### Added
+- Short-circuit for `/brainstorm` to bypass dev pipeline markers.
+- Brainstorm chat validates text and errors when config is missing.
+
+### Changed
+- Pipeline exits early on brainstorm requests to avoid dev markers.
+
 ## 2026.01.31-brainstorm.3
 
 ### Added
