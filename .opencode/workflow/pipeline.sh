@@ -28,8 +28,6 @@ if [[ -z "$RUN_ID_VALUE" || "$RUN_ID_VALUE" == "unknown" ]]; then
   RUN_ID_VALUE="$(date +%Y%m%d_%H%M%S)_${RANDOM}"
 fi
 
-echo "[pipeline] start run_id=$RUN_ID_VALUE root=$ROOT $(date -Is) max_iters=$MAX_ITERS" >> "$LOG"
-
 # Helper: extract critic verdict
 critic_verdict() {
   if [[ -f "$WF/03_CRITIC_REPORT.md" ]]; then
@@ -68,13 +66,20 @@ route_brainstorm_chat() {
   trimmed="${trimmed#${trimmed%%[![:space:]]*}}"
 
   local brainstorm_text=""
+  local prefix_seen=0
   if [[ "$trimmed" == /brainstorm* ]]; then
     brainstorm_text="${trimmed#/brainstorm}"
+    prefix_seen=1
   elif [[ "$trimmed" == brainstorm:* ]]; then
     brainstorm_text="${trimmed#brainstorm:}"
+    prefix_seen=1
   fi
 
   brainstorm_text="${brainstorm_text#${brainstorm_text%%[![:space:]]*}}"
+  if [[ $prefix_seen -eq 1 && -z "$brainstorm_text" ]]; then
+    echo "FAIL: brainstorm requires text" >&2
+    return 2
+  fi
   if [[ -z "$brainstorm_text" ]]; then
     return 1
   fi
@@ -82,6 +87,18 @@ route_brainstorm_chat() {
   bash "$WF/brainstorm_chat.sh" "$brainstorm_text"
   return 0
 }
+
+if [[ $CHAT_MODE -eq 1 ]]; then
+  route_brainstorm_chat
+  rc=$?
+  if [[ $rc -eq 0 ]]; then
+    exit 0
+  elif [[ $rc -eq 2 ]]; then
+    exit 2
+  fi
+fi
+
+echo "[pipeline] start run_id=$RUN_ID_VALUE root=$ROOT $(date -Is) max_iters=$MAX_ITERS" >> "$LOG"
 
 # Prompts generator
 write_prompts() {
@@ -171,10 +188,6 @@ for ((iter=1; iter<=MAX_ITERS; iter++)); do
   echo "[pipeline] iter=$iter" >> "$LOG"
   write_prompts "$iter"
   
-  if [[ $CHAT_MODE -eq 1 ]] && route_brainstorm_chat; then
-    exit 0
-  fi
-
   run_step orchestrator "$PROMPT_DIR/prompt_orch_a.txt" || exit 2
 
   run_step executor     "$PROMPT_DIR/prompt_exec.txt"   || exit 3
