@@ -1,13 +1,41 @@
-roles:
-  - moderator
-  - critic
-  - creative
-  - rebel
-  - conservative
 models:
   modelA: "antigravity/gpt-5.2"
   modelB: "antigravity/gpt-5.2-codex"
-min_length_chars: 800
-synthesis_min_chars: 1500
-max_attempts: 2
-model_timeout_sec: 150
+
+defaults:
+  min_length_chars: 800
+  role_timeout_sec: 150
+  max_attempts: 2
+
+rounds:
+  - name: "ideation"
+    roles:
+      - name: moderator
+        prompt: "Ты модератор. Дай 3-5 вариантов решения, риски и рекомендации."
+        run: both
+      - name: creative
+        prompt: "Ты креативщик. Предложи нестандартные варианты, риски и next steps."
+        run: both
+      - name: rebel
+        prompt: "Ты бунтарь. Найди радикальные ходы, риски и гейты."
+        run: both
+      - name: conservative
+        prompt: "Ты консерватор. Дай безопасные варианты, риски и меры защиты."
+        run: both
+      - name: critic
+        prompt: "Ты критик. Разнеси варианты, укажи слабые места и критерии приемки."
+        run: both
+
+  - name: "critique"
+    enabled: false
+    roles:
+      - name: critic
+        prompt: "Оспорь идеи раунда ideation, найди слабые места и риски."
+        run: modelA
+      - name: rebel
+        prompt: "Найди контраргументы и провальные сценарии."
+        run: modelB
+
+synthesis:
+  min_chars: 1500
+  prompt: "Собери итог: 3 варианта реализации, риски и следующие шаги."

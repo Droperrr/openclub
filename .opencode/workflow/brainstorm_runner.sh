@@ -66,57 +66,74 @@ trim_value() {
   printf "%s" "$value"
 }
 
-ROLES=()
+CONFIG_RAW="$(cat "$CONFIG_FILE")"
+
 MODEL_A_CONFIG=""
 MODEL_B_CONFIG=""
-MIN_LENGTH_CHARS=""
+DEFAULT_MIN_LENGTH=""
+DEFAULT_TIMEOUT_SEC=""
+DEFAULT_MAX_ATTEMPTS=""
 SYNTHESIS_MIN_CHARS=""
-MAX_ATTEMPTS=""
-MODEL_TIMEOUT_SEC=""
-PARSE_MODE=""
+SYNTHESIS_PROMPT=""
+
+ROUND_NAMES=()
+ROUND_ENABLED=()
+ROUND_ROLE_NAMES=()
+ROUND_ROLE_RUNS=()
+ROUND_ROLE_PROMPTS=()
+
+current_section=""
+current_round=""
+current_round_enabled=1
+current_role=""
+current_role_prompt=""
+current_role_run=""
+
+finalize_role() {
+  if [[ -n "$current_role" ]]; then
+    ROUND_ROLE_NAMES+=("$current_round:$current_role")
+    ROUND_ROLE_RUNS+=("$current_round:${current_role_run:-both}")
+    ROUND_ROLE_PROMPTS+=("$current_round:${current_role_prompt}")
+  fi
+  current_role=""
+  current_role_prompt=""
+  current_role_run=""
+}
+
+finalize_round() {
+  finalize_role
+  if [[ -n "$current_round" ]]; then
+    ROUND_NAMES+=("$current_round")
+    ROUND_ENABLED+=("$current_round_enabled")
+  fi
+  current_round=""
+  current_round_enabled=1
+}
 
 while IFS= read -r raw_line; do
   line="${raw_line%%#*}"
   if [[ -z "${line//[[:space:]]/}" ]]; then
     continue
   fi
-  if [[ "$line" =~ ^roles: ]]; then
-    PARSE_MODE="roles"
-    continue
-  fi
+
   if [[ "$line" =~ ^models: ]]; then
-    PARSE_MODE="models"
+    current_section="models"
     continue
   fi
-  if [[ "$line" =~ ^min_length_chars: ]]; then
-    value="${line#*:}"
-    MIN_LENGTH_CHARS="$(trim_value "$value")"
+  if [[ "$line" =~ ^defaults: ]]; then
+    current_section="defaults"
     continue
   fi
-  if [[ "$line" =~ ^synthesis_min_chars: ]]; then
-    value="${line#*:}"
-    SYNTHESIS_MIN_CHARS="$(trim_value "$value")"
+  if [[ "$line" =~ ^rounds: ]]; then
+    current_section="rounds"
     continue
   fi
-  if [[ "$line" =~ ^max_attempts: ]]; then
-    value="${line#*:}"
-    MAX_ATTEMPTS="$(trim_value "$value")"
+  if [[ "$line" =~ ^synthesis: ]]; then
+    current_section="synthesis"
     continue
   fi
-  if [[ "$line" =~ ^model_timeout_sec: ]]; then
-    value="${line#*:}"
-    MODEL_TIMEOUT_SEC="$(trim_value "$value")"
-    continue
-  fi
-  if [[ "$PARSE_MODE" == "roles" && "$line" =~ ^[[:space:]]*-[[:space:]]* ]]; then
-    role="${line#*- }"
-    role="$(trim_value "$role")"
-    if [[ -n "$role" ]]; then
-      ROLES+=("$role")
-    fi
-    continue
-  fi
-  if [[ "$PARSE_MODE" == "models" ]]; then
+
+  if [[ "$current_section" == "models" ]]; then
     if [[ "$line" =~ ^[[:space:]]*modelA: ]]; then
       value="${line#*:}"
       MODEL_A_CONFIG="$(trim_value "$value")"
@@ -129,25 +146,96 @@ while IFS= read -r raw_line; do
     fi
   fi
 
+  if [[ "$current_section" == "defaults" ]]; then
+    if [[ "$line" =~ ^[[:space:]]*min_length_chars: ]]; then
+      value="${line#*:}"
+      DEFAULT_MIN_LENGTH="$(trim_value "$value")"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*role_timeout_sec: ]]; then
+      value="${line#*:}"
+      DEFAULT_TIMEOUT_SEC="$(trim_value "$value")"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*max_attempts: ]]; then
+      value="${line#*:}"
+      DEFAULT_MAX_ATTEMPTS="$(trim_value "$value")"
+      continue
+    fi
+  fi
+
+  if [[ "$current_section" == "synthesis" ]]; then
+    if [[ "$line" =~ ^[[:space:]]*min_chars: ]]; then
+      value="${line#*:}"
+      SYNTHESIS_MIN_CHARS="$(trim_value "$value")"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*prompt: ]]; then
+      value="${line#prompt:}"
+      SYNTHESIS_PROMPT="$(trim_value "$value")"
+      continue
+    fi
+  fi
+
+  if [[ "$current_section" == "rounds" ]]; then
+    if [[ "$line" =~ ^[[:space:]]{2}-[[:space:]]*name: ]]; then
+      finalize_round
+      current_round="$(trim_value "${line#*:}")"
+      current_round_enabled=1
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*enabled: ]]; then
+      value="$(trim_value "${line#*:}")"
+      if [[ "$value" == "false" ]]; then
+        current_round_enabled=0
+      else
+        current_round_enabled=1
+      fi
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]{6}-[[:space:]]*name: ]]; then
+      finalize_role
+      current_role="$(trim_value "${line#*:}")"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]{8}name: ]]; then
+      finalize_role
+      current_role="$(trim_value "${line#*:}")"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]{8}prompt: ]]; then
+      current_role_prompt="$(trim_value "${line#prompt:}")"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]{8}run: ]]; then
+      current_role_run="$(trim_value "${line#run:}")"
+      continue
+    fi
+  fi
+
 done < "$CONFIG_FILE"
 
-if [[ ${#ROLES[@]} -eq 0 ]]; then
-  echo "FAIL: brainstorm config missing roles" >&2
-  exit 1
-fi
+finalize_round
+
 if [[ -z "$MODEL_A_CONFIG" ]]; then
   echo "FAIL: brainstorm config missing modelA" >&2
   exit 1
 fi
-if [[ -z "$MIN_LENGTH_CHARS" || -z "$SYNTHESIS_MIN_CHARS" ]]; then
-  echo "FAIL: brainstorm config missing min_length_chars or synthesis_min_chars" >&2
+if [[ -z "$DEFAULT_MIN_LENGTH" ]]; then
+  echo "FAIL: brainstorm config missing defaults.min_length_chars" >&2
   exit 1
 fi
-if [[ -z "$MAX_ATTEMPTS" ]]; then
-  MAX_ATTEMPTS="2"
+if [[ -z "$DEFAULT_TIMEOUT_SEC" ]]; then
+  DEFAULT_TIMEOUT_SEC="120"
 fi
-if [[ -z "$MODEL_TIMEOUT_SEC" ]]; then
-  MODEL_TIMEOUT_SEC="120"
+if [[ -z "$DEFAULT_MAX_ATTEMPTS" ]]; then
+  DEFAULT_MAX_ATTEMPTS="2"
+fi
+if [[ -z "$SYNTHESIS_MIN_CHARS" ]]; then
+  SYNTHESIS_MIN_CHARS="1500"
+fi
+if [[ -z "$SYNTHESIS_PROMPT" ]]; then
+  SYNTHESIS_PROMPT="Summarize the brainstorm outputs across all rounds. Provide 3 implementation variants, risks, and recommended next steps."
 fi
 
 AVAILABLE_MODELS=()
@@ -193,31 +281,27 @@ MODEL_B_LABEL_ID="${MODEL_B_CONFIG:-NONE}"
 mkdir -p "$SESSION_DIR"
 
 STARTED_AT="$(date -Is)"
-ROLE_LIST=$(IFS=,; printf "%s" "${ROLES[*]}")
 META_FILE="$SESSION_DIR/01_META.md"
 {
   printf "# Brainstorm Meta\n"
   printf "session_id=%s\n" "$SESSION_ID"
   printf "root=%s\n" "$ROOT"
   printf "started_at=%s\n" "$STARTED_AT"
-  printf "roles=%s\n" "$ROLE_LIST"
   printf "modelA=%s\n" "$MODEL_A"
   if [[ -n "$MODEL_B" ]]; then
     printf "modelB=%s\n" "$MODEL_B"
   else
     printf "modelB=NONE\n"
   fi
-  printf "min_length_chars=%s\n" "$MIN_LENGTH_CHARS"
+  printf "min_length_chars=%s\n" "$DEFAULT_MIN_LENGTH"
   printf "synthesis_min_chars=%s\n" "$SYNTHESIS_MIN_CHARS"
 } > "$META_FILE"
-
-ROLE_PROMPT="You are participating in a brainstorm session. Provide concise, actionable ideas and risks."
 
 run_with_prompt() {
   local model_id="$1"
   local prompt="$2"
   local output_file="$3"
-  timeout "$MODEL_TIMEOUT_SEC" oc opencode run --model "$model_id" "$prompt" > "$output_file" 2>&1
+  timeout "$DEFAULT_TIMEOUT_SEC" oc opencode run --model "$model_id" "$prompt" > "$output_file" 2>&1
 }
 
 append_for_length() {
@@ -233,7 +317,8 @@ append_for_length() {
     if [[ "$current_len" -ge "$min_len" ]]; then
       return 0
     fi
-    if [[ $attempts -ge $((MAX_ATTEMPTS - 1)) ]]; then
+    if [[ $attempts -ge $((DEFAULT_MAX_ATTEMPTS - 1)) ]]; then
+      printf "\nSHORT_OUTPUT: expected >= %s chars\n" "$min_len" >> "$output_file"
       return 1
     fi
     attempts=$((attempts + 1))
@@ -241,7 +326,7 @@ append_for_length() {
     previous="$(cat "$output_file")"
     local expand_prompt
     expand_prompt="${base_prompt}\n\nPrevious response:\n${previous}\n\nExpand with more detail, concrete steps, and risks. Add new content only. Ensure the total length is at least ${min_len} characters."
-    timeout "$MODEL_TIMEOUT_SEC" oc opencode run --model "$model_id" "$expand_prompt" >> "$output_file" 2>&1 || return 1
+    timeout "$DEFAULT_TIMEOUT_SEC" oc opencode run --model "$model_id" "$expand_prompt" >> "$output_file" 2>&1 || return 1
   done
 }
 
@@ -252,63 +337,97 @@ write_skipped() {
 }
 
 run_role_model() {
-  local role="$1"
-  local model_id="$2"
-  local model_label="$3"
-  local output_file="$SESSION_DIR/10_${role}_${model_label}.md"
-  local min_len="$MIN_LENGTH_CHARS"
+  local round_name="$1"
+  local role_name="$2"
+  local role_prompt="$3"
+  local model_id="$4"
+  local model_label="$5"
+  local output_file="$6"
+  local min_len="$DEFAULT_MIN_LENGTH"
+  local prompt
 
   if [[ -z "$model_id" ]]; then
     write_skipped "$output_file" "$MODEL_B_REASON"
-    echo "[brainstorm] role=$role model=$model_label done" >> "$LOG"
+    echo "[brainstorm] round=$round_name role=$role_name model_id=NONE done" >> "$LOG"
     return 0
   fi
 
-  local prompt
-  prompt="Role: ${role}. ${ROLE_PROMPT}\nMinimum length: ${min_len} characters. Do not respond with acknowledgements. Provide 3-5 ideas, risks, and recommendations.\n\nPrompt:\n${PROMPT_TEXT}\n"
+  prompt="Role: ${role_name}. ${role_prompt}\nMinimum length: ${min_len} characters. Do not respond with acknowledgements. Provide 3-5 ideas, risks, and recommendations.\n\nPrompt:\n${PROMPT_TEXT}\n"
 
-  echo "[brainstorm] role=$role model=$model_label start" >> "$LOG"
+  echo "[brainstorm] round=$round_name role=$role_name model_id=$model_id start" >> "$LOG"
   if run_with_prompt "$model_id" "$prompt" "$output_file"; then
     if append_for_length "$model_id" "$output_file" "$min_len" "$prompt"; then
-      echo "[brainstorm] role=$role model=$model_label done" >> "$LOG"
+      echo "[brainstorm] round=$round_name role=$role_name model_id=$model_id done" >> "$LOG"
       return 0
     fi
   fi
 
   if [[ "$model_label" == "$MODEL_B_LABEL" ]]; then
     write_skipped "$output_file" "call failed or output too short"
-    echo "[brainstorm] role=$role model=$model_label done rc=1" >> "$LOG"
+    echo "[brainstorm] round=$round_name role=$role_name model_id=$model_id done rc=1" >> "$LOG"
     return 0
   fi
 
-  echo "[brainstorm] ERROR role=$role model=$model_label failed" >> "$LOG"
+  echo "[brainstorm] ERROR round=$round_name role=$role_name model_id=$model_id failed" >> "$LOG"
   return 1
 }
 
 TRANSCRIPT_FILE="$SESSION_DIR/99_TRANSCRIPT.md"
 : > "$TRANSCRIPT_FILE"
 
-for role in "${ROLES[@]}"; do
-  run_role_model "$role" "$MODEL_A" "$MODEL_A_LABEL" || exit 2
-  run_role_model "$role" "$MODEL_B" "$MODEL_B_LABEL" || exit 2
+for idx in "${!ROUND_NAMES[@]}"; do
+  round_name="${ROUND_NAMES[$idx]}"
+  round_enabled="${ROUND_ENABLED[$idx]}"
+  if [[ "$round_enabled" -ne 1 ]]; then
+    continue
+  fi
 
-done
+  printf "## Round: %s\n\n" "$round_name" >> "$TRANSCRIPT_FILE"
 
-for role in "${ROLES[@]}"; do
-  output_file_a="$SESSION_DIR/10_${role}_${MODEL_A_LABEL}.md"
-  printf "### [%s@%s:%s]\n\n" "$role" "$MODEL_A_LABEL" "$MODEL_A_LABEL_ID" >> "$TRANSCRIPT_FILE"
-  cat "$output_file_a" >> "$TRANSCRIPT_FILE"
-  printf "\n\n" >> "$TRANSCRIPT_FILE"
+  for role_entry in "${ROUND_ROLE_NAMES[@]}"; do
+    if [[ "$role_entry" != "$round_name:"* ]]; then
+      continue
+    fi
+    role_name="${role_entry#${round_name}:}"
 
-  output_file_b="$SESSION_DIR/10_${role}_${MODEL_B_LABEL}.md"
-  printf "### [%s@%s:%s]\n\n" "$role" "$MODEL_B_LABEL" "$MODEL_B_LABEL_ID" >> "$TRANSCRIPT_FILE"
-  cat "$output_file_b" >> "$TRANSCRIPT_FILE"
-  printf "\n\n" >> "$TRANSCRIPT_FILE"
+    role_prompt=""
+    for prompt_entry in "${ROUND_ROLE_PROMPTS[@]}"; do
+      if [[ "$prompt_entry" == "$round_name:$role_name:"* ]]; then
+        role_prompt="${prompt_entry#${round_name}:${role_name}:}"
+        break
+      fi
+    done
+
+    role_run="both"
+    for run_entry in "${ROUND_ROLE_RUNS[@]}"; do
+      if [[ "$run_entry" == "$round_name:$role_name:"* ]]; then
+        role_run="${run_entry#${round_name}:${role_name}:}"
+        break
+      fi
+    done
+
+    if [[ "$role_run" == "modelA" || "$role_run" == "both" ]]; then
+      output_file="$SESSION_DIR/20_${round_name}_${role_name}_${MODEL_A_LABEL}.md"
+      run_role_model "$round_name" "$role_name" "$role_prompt" "$MODEL_A" "$MODEL_A_LABEL" "$output_file" || exit 2
+      printf "### [%s@%s:%s]\n\n" "$role_name" "$MODEL_A_LABEL" "$MODEL_A_LABEL_ID" >> "$TRANSCRIPT_FILE"
+      cat "$output_file" >> "$TRANSCRIPT_FILE"
+      printf "\n\n" >> "$TRANSCRIPT_FILE"
+    fi
+
+    if [[ "$role_run" == "modelB" || "$role_run" == "both" ]]; then
+      output_file="$SESSION_DIR/20_${round_name}_${role_name}_${MODEL_B_LABEL}.md"
+      run_role_model "$round_name" "$role_name" "$role_prompt" "$MODEL_B" "$MODEL_B_LABEL" "$output_file" || exit 2
+      printf "### [%s@%s:%s]\n\n" "$role_name" "$MODEL_B_LABEL" "$MODEL_B_LABEL_ID" >> "$TRANSCRIPT_FILE"
+      cat "$output_file" >> "$TRANSCRIPT_FILE"
+      printf "\n\n" >> "$TRANSCRIPT_FILE"
+    fi
+
+  done
 
 done
 
 SYNTHESIS_FILE="$SESSION_DIR/90_SYNTHESIS.md"
-SYNTH_PROMPT="Role: moderator. Summarize the brainstorm outputs across all roles and models. Provide 3 implementation variants, risks, and recommended next steps. Minimum length: ${SYNTHESIS_MIN_CHARS} characters. Use the transcript below.\n\nTranscript:\n"
+SYNTH_PROMPT="Role: moderator. ${SYNTHESIS_PROMPT}\nMinimum length: ${SYNTHESIS_MIN_CHARS} characters. Use the transcript below.\n\nTranscript:\n"
 SYNTH_PROMPT+="$(cat "$TRANSCRIPT_FILE")"
 SYNTH_PROMPT+="\n\nWrite only the synthesis."
 
@@ -322,6 +441,7 @@ else
   exit 3
 fi
 
+printf "## Round: synthesis\n\n" >> "$TRANSCRIPT_FILE"
 printf "### [moderator]\n\n" >> "$TRANSCRIPT_FILE"
 cat "$SYNTHESIS_FILE" >> "$TRANSCRIPT_FILE"
 printf "\n" >> "$TRANSCRIPT_FILE"
