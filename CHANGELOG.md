@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.01.31-brainstorm.3
+
+### Added
+- Chat trigger for `/brainstorm` and `brainstorm:` in chat mode.
+- Brainstorm chat runner that writes `LAST_SESSION`.
+
+### Changed
+- Pipeline routes chat brainstorm requests to runner with transcript output.
+
 ## 2026.01.31-brainstorm.2
 
 ### Added
