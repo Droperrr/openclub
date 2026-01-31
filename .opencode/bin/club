@@ -47,7 +47,7 @@ Commands:
   logs [--follow]
   selftest
   ask "<text>"
-  brainstorm [--quiet] [--tail N] [--no-context] "<text>"
+  brainstorm [--quiet] [--tail N] [--no-context] [--preset NAME] "<text>"
 
 Options:
   1           Run INFRA selftest before start
@@ -55,6 +55,7 @@ Options:
   --quiet     Brainstorm: suppress transcript output
   --tail N    Brainstorm: print last N lines
   --no-context Brainstorm: ignore CONTEXT.md
+  --preset NAME Brainstorm: override models from presets
   --no-color  Brainstorm: disable color output
 EOF
 }
@@ -105,6 +106,7 @@ brainstorm_request() {
   local tail_lines=""
   local no_color=0
   local no_context=0
+  local preset_name=""
   local text=""
 
   while [[ $# -gt 0 ]]; do
@@ -132,6 +134,48 @@ brainstorm_request() {
       --no-context)
         no_context=1
         shift
+        ;;
+      --preset)
+        if [[ -z "${2:-}" ]]; then
+          echo "FAIL: --preset requires a name"
+          exit 1
+        fi
+        if [[ "$2" == "list" ]]; then
+          local preset_file="$ROOT/.opencode/config/models.presets.yml"
+          if [[ ! -f "$preset_file" ]]; then
+            echo "FAIL: presets file not found: $preset_file"
+            exit 1
+          fi
+          local in_presets=0
+          local line
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^presets: ]]; then
+              in_presets=1
+              continue
+            fi
+            if [[ $in_presets -eq 1 && "$line" =~ ^[^[:space:]] ]]; then
+              break
+            fi
+            if [[ $in_presets -eq 1 && "$line" =~ ^[[:space:]]{2}[A-Za-z0-9_-]+:[[:space:]]*$ ]]; then
+              local preset_label
+              preset_label="${line%%:*}"
+              preset_label="${preset_label#${preset_label%%[![:space:]]*}}"
+              local preset_model_b=""
+              preset_model_b=$(sed -n "/^[[:space:]]*${preset_label}:[[:space:]]*$/,/^[[:space:]]{2}[A-Za-z0-9_-]+:/p" "$preset_file" | sed -n 's/^[[:space:]]*modelB:[[:space:]]*"\{0,1\}\(.*\)"\{0,1\}$/\1/p' | head -n 1)
+              preset_model_b="${preset_model_b#${preset_model_b%%[![:space:]]*}}"
+              preset_model_b="${preset_model_b%\"}"
+              preset_model_b="${preset_model_b#\"}"
+              if [[ -z "$preset_model_b" ]]; then
+                echo "${preset_label} (single)"
+              else
+                echo "$preset_label"
+              fi
+            fi
+          done < "$preset_file"
+          exit 0
+        fi
+        preset_name="$2"
+        shift 2
         ;;
       --*)
         echo "FAIL: unknown option $1"
@@ -170,19 +214,89 @@ brainstorm_request() {
     runner_args+=("--no-context")
   fi
 
-  if "$WF/brainstorm_runner.sh" "${runner_args[@]}"; then
-    local meta_file="$session_dir/01_META.md"
-    local model_a
-    local model_b
-    model_a=$(grep -E '^modelA=' "$meta_file" | head -n 1 | sed 's/^modelA=//')
-    model_b=$(grep -E '^modelB=' "$meta_file" | head -n 1 | sed 's/^modelB=//')
-    echo "OK: brainstorm session_id=$session_id modelA=$model_a modelB=$model_b"
-    if [[ $quiet -eq 1 ]]; then
-      echo "OK: transcript $session_dir/99_TRANSCRIPT.md"
+  local preset_file="$ROOT/.opencode/config/models.presets.yml"
+  local preset_model_a=""
+  local preset_model_b=""
+  local preset_found=0
+  if [[ -n "$preset_name" ]]; then
+    if [[ ! -f "$preset_file" ]]; then
+      echo "FAIL: presets file not found: $preset_file"
+      exit 1
+    fi
+
+    local in_presets=0
+    local in_target=0
+    local raw_line
+    while IFS= read -r raw_line; do
+      if [[ "$raw_line" =~ ^presets: ]]; then
+        in_presets=1
+        continue
+      fi
+      if [[ $in_presets -eq 1 && "$raw_line" =~ ^[^[:space:]] ]]; then
+        break
+      fi
+      if [[ $in_presets -eq 1 && "$raw_line" =~ ^[[:space:]]{2}${preset_name}:[[:space:]]*$ ]]; then
+        in_target=1
+        preset_found=1
+        continue
+      fi
+      if [[ $in_target -eq 1 && "$raw_line" =~ ^[[:space:]]{2}[A-Za-z0-9_-]+: ]]; then
+        break
+      fi
+      if [[ $in_target -eq 1 && "$raw_line" =~ ^[[:space:]]{4}modelA: ]]; then
+        preset_model_a="${raw_line#*:}"
+        preset_model_a="${preset_model_a#${preset_model_a%%[![:space:]]*}}"
+        preset_model_a="${preset_model_a%\"}"
+        preset_model_a="${preset_model_a#\"}"
+      fi
+      if [[ $in_target -eq 1 && "$raw_line" =~ ^[[:space:]]{4}modelB: ]]; then
+        preset_model_b="${raw_line#*:}"
+        preset_model_b="${preset_model_b#${preset_model_b%%[![:space:]]*}}"
+        preset_model_b="${preset_model_b%\"}"
+        preset_model_b="${preset_model_b#\"}"
+      fi
+    done < "$preset_file"
+
+    if [[ $preset_found -eq 0 ]]; then
+      echo "FAIL: preset not found: $preset_name"
+      exit 1
+    fi
+    if [[ -z "$preset_model_a" ]]; then
+      echo "FAIL: preset missing modelA: $preset_name"
+      exit 1
+    fi
+  fi
+
+  if [[ -n "$preset_name" ]]; then
+    if BRAINSTORM_MODEL_A="$preset_model_a" BRAINSTORM_MODEL_B="$preset_model_b" BRAINSTORM_MODELS_SOURCE="preset:$preset_name" BRAINSTORM_PRESET_NAME="$preset_name" "$WF/brainstorm_runner.sh" "${runner_args[@]}"; then
+      local meta_file="$session_dir/01_META.md"
+      local model_a
+      local model_b
+      model_a=$(grep -E '^modelA=' "$meta_file" | head -n 1 | sed 's/^modelA=//')
+      model_b=$(grep -E '^modelB=' "$meta_file" | head -n 1 | sed 's/^modelB=//')
+      echo "OK: brainstorm session_id=$session_id modelA=$model_a modelB=$model_b"
+      if [[ $quiet -eq 1 ]]; then
+        echo "OK: transcript $session_dir/99_TRANSCRIPT.md"
+      fi
+    else
+      echo "FAIL: brainstorm runner failed session_id=$session_id"
+      exit 1
     fi
   else
-    echo "FAIL: brainstorm runner failed session_id=$session_id"
-    exit 1
+    if "$WF/brainstorm_runner.sh" "${runner_args[@]}"; then
+      local meta_file="$session_dir/01_META.md"
+      local model_a
+      local model_b
+      model_a=$(grep -E '^modelA=' "$meta_file" | head -n 1 | sed 's/^modelA=//')
+      model_b=$(grep -E '^modelB=' "$meta_file" | head -n 1 | sed 's/^modelB=//')
+      echo "OK: brainstorm session_id=$session_id modelA=$model_a modelB=$model_b"
+      if [[ $quiet -eq 1 ]]; then
+        echo "OK: transcript $session_dir/99_TRANSCRIPT.md"
+      fi
+    else
+      echo "FAIL: brainstorm runner failed session_id=$session_id"
+      exit 1
+    fi
   fi
 }
 

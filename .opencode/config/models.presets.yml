@@ -1,10 +1,15 @@
-# How to use:
-# 1) Copy one block below into .opencode/config/brainstorm.yml -> models:
-# 2) Set modelA/modelB strings.
-# 3) Keep modelB empty for single-model mode.
-# NOTE: This file is reference-only. Runner does not read it.
+presets:
+  fast_dual:
+    modelA: "antigravity/gpt-5.2"
+    modelB: "antigravity/gpt-5.2-codex"
+  single_strong:
+    modelA: "antigravity/gpt-5.2"
+    modelB: ""
+  coding_dual:
+    modelA: "antigravity/gpt-5.1-codex"
+    modelB: "antigravity/gpt-5-codex"
 
-# ---- AVAILABLE MODELS (auto-copied from: oc opencode models) ----
+# AVAILABLE MODELS (reference only)
 # antigravity/gemini-2.5-flash
 # antigravity/gemini-2.5-flash-lite
 # antigravity/gemini-3-flash-preview
@@ -21,18 +26,8 @@
 # antigravity/gpt-5.2-codex
 # antigravity/gpt-oss-120b-medium
 # antigravity/tab_flash_lite_preview
-
-# ---- PRESET: fast_dual ----
-# models:
+# Gemini presets require account verification; keep in comments until enabled.
+# gemini_fast:
 #   modelA: "antigravity/gemini-2.5-flash"
-#   modelB: "antigravity/gemini-2.5-flash-lite"
+#   modelB: "antigravity/gemini-3-pro-preview"
 
-# ---- PRESET: single_strong ----
-# models:
-#   modelA: "antigravity/gpt-5.2"
-#   modelB: ""
-
-# ---- PRESET: coding_dual ----
-# models:
-#   modelA: "antigravity/gpt-5.1-codex"
-#   modelB: "antigravity/gpt-5-codex"

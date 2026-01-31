@@ -1,5 +1,16 @@
 # Changelog
 
+## v2026.01.31-brainstorm.7
+
+### Added
+- Preset selection via `--preset` and listing via `--preset list`.
+- Chat trigger supports `/brainstorm --preset NAME`.
+- Preset models logged in META and daemon.log markers.
+
+### Changed
+- Presets are GPT-only; Gemini presets are commented out.
+- Runner returns non-zero when a model call fails.
+
 ## 2026.01.31-brainstorm.6
 
 ### Added

@@ -75,6 +75,8 @@ CONFIG_RAW="$(cat "$CONFIG_FILE")"
 
 MODEL_A_CONFIG=""
 MODEL_B_CONFIG=""
+MODELS_SOURCE="config"
+PRESET_NAME=""
 DEFAULT_MIN_LENGTH=""
 DEFAULT_TIMEOUT_SEC=""
 DEFAULT_MAX_ATTEMPTS=""
@@ -240,6 +242,12 @@ fi
 if [[ -z "$DEFAULT_MAX_ATTEMPTS" ]]; then
   DEFAULT_MAX_ATTEMPTS="2"
 fi
+if [[ -n "${BRAINSTORM_MODEL_TIMEOUT:-}" ]]; then
+  DEFAULT_TIMEOUT_SEC="$BRAINSTORM_MODEL_TIMEOUT"
+fi
+if [[ -n "${BRAINSTORM_MAX_ATTEMPTS:-}" ]]; then
+  DEFAULT_MAX_ATTEMPTS="$BRAINSTORM_MAX_ATTEMPTS"
+fi
 if [[ -z "$SYNTHESIS_MIN_CHARS" ]]; then
   SYNTHESIS_MIN_CHARS="1500"
 fi
@@ -264,6 +272,20 @@ model_available() {
   return 1
 }
 
+if [[ -n "${BRAINSTORM_MODELS_SOURCE:-}" ]]; then
+  MODELS_SOURCE="$BRAINSTORM_MODELS_SOURCE"
+fi
+if [[ -n "${BRAINSTORM_PRESET_NAME:-}" ]]; then
+  PRESET_NAME="$BRAINSTORM_PRESET_NAME"
+fi
+if [[ -n "${BRAINSTORM_MODEL_A:-}" ]]; then
+  MODEL_A_CONFIG="$BRAINSTORM_MODEL_A"
+  MODEL_B_CONFIG="${BRAINSTORM_MODEL_B:-}"
+  if [[ "$MODELS_SOURCE" == "config" ]]; then
+    MODELS_SOURCE="env"
+  fi
+fi
+
 MODEL_A="$MODEL_A_CONFIG"
 if ! model_available "$MODEL_A"; then
   echo "FAIL: modelA not available: $MODEL_A" >&2
@@ -280,6 +302,12 @@ else
   else
     MODEL_B_REASON="not in models list"
   fi
+fi
+
+if [[ "$MODELS_SOURCE" == preset:* ]]; then
+  echo "[brainstorm] models_source=$MODELS_SOURCE modelA=$MODEL_A modelB=$MODEL_B" >> "$LOG"
+else
+  echo "[brainstorm] models_source=$MODELS_SOURCE modelA=$MODEL_A modelB=$MODEL_B" >> "$LOG"
 fi
 
 MODEL_A_LABEL="modelA"
@@ -319,6 +347,10 @@ META_FILE="$SESSION_DIR/01_META.md"
   fi
   printf "min_length_chars=%s\n" "$DEFAULT_MIN_LENGTH"
   printf "synthesis_min_chars=%s\n" "$SYNTHESIS_MIN_CHARS"
+  printf "models_source=%s\n" "$MODELS_SOURCE"
+  if [[ "$MODELS_SOURCE" == preset:* ]]; then
+    printf "preset_name=%s\n" "$PRESET_NAME"
+  fi
   if [[ $CONTEXT_ENABLED -eq 1 ]]; then
     printf "context_file=%s\n" "$CONTEXT_FILE"
     printf "context_enabled=1\n"
@@ -395,6 +427,12 @@ run_role_model() {
     return 0
   fi
 
+  if [[ -z "$MODEL_B" && "$model_label" == "$MODEL_B_LABEL" ]]; then
+    write_skipped "$output_file" "$MODEL_B_REASON"
+    echo "[brainstorm] round=$round_name role=$role_name model_id=NONE done" >> "$LOG"
+    return 0
+  fi
+
   prompt="Role: ${role_name}. ${role_prompt}\nMinimum length: ${min_len} characters. Do not respond with acknowledgements. Provide 3-5 ideas, risks, and recommendations.\n\n${CONTEXT_BLOCK}Prompt:\n${PROMPT_TEXT}\n"
 
   echo "[brainstorm] round=$round_name role=$role_name model_id=$model_id start" >> "$LOG"
@@ -405,12 +443,7 @@ run_role_model() {
     fi
   fi
 
-  if [[ "$model_label" == "$MODEL_B_LABEL" ]]; then
-    write_skipped "$output_file" "call failed or output too short"
-    echo "[brainstorm] round=$round_name role=$role_name model_id=$model_id done rc=1" >> "$LOG"
-    return 0
-  fi
-
+  write_skipped "$output_file" "call failed or output too short"
   echo "[brainstorm] ERROR round=$round_name role=$role_name model_id=$model_id failed" >> "$LOG"
   return 1
 }
@@ -418,6 +451,7 @@ run_role_model() {
 TRANSCRIPT_FILE="$SESSION_DIR/99_TRANSCRIPT.md"
 : > "$TRANSCRIPT_FILE"
 
+model_fail=0
 for idx in "${!ROUND_NAMES[@]}"; do
   round_name="${ROUND_NAMES[$idx]}"
   round_enabled="${ROUND_ENABLED[$idx]}"
@@ -451,7 +485,7 @@ for idx in "${!ROUND_NAMES[@]}"; do
 
     if [[ "$role_run" == "modelA" || "$role_run" == "both" ]]; then
       output_file="$SESSION_DIR/20_${round_name}_${role_name}_${MODEL_A_LABEL}.md"
-      run_role_model "$round_name" "$role_name" "$role_prompt" "$MODEL_A" "$MODEL_A_LABEL" "$output_file" || exit 2
+      run_role_model "$round_name" "$role_name" "$role_prompt" "$MODEL_A" "$MODEL_A_LABEL" "$output_file" || model_fail=1
       printf "### [%s@%s:%s]\n\n" "$role_name" "$MODEL_A_LABEL" "$MODEL_A_LABEL_ID" >> "$TRANSCRIPT_FILE"
       cat "$output_file" >> "$TRANSCRIPT_FILE"
       printf "\n\n" >> "$TRANSCRIPT_FILE"
@@ -459,7 +493,7 @@ for idx in "${!ROUND_NAMES[@]}"; do
 
     if [[ "$role_run" == "modelB" || "$role_run" == "both" ]]; then
       output_file="$SESSION_DIR/20_${round_name}_${role_name}_${MODEL_B_LABEL}.md"
-      run_role_model "$round_name" "$role_name" "$role_prompt" "$MODEL_B" "$MODEL_B_LABEL" "$output_file" || exit 2
+      run_role_model "$round_name" "$role_name" "$role_prompt" "$MODEL_B" "$MODEL_B_LABEL" "$output_file" || model_fail=1
       printf "### [%s@%s:%s]\n\n" "$role_name" "$MODEL_B_LABEL" "$MODEL_B_LABEL_ID" >> "$TRANSCRIPT_FILE"
       cat "$output_file" >> "$TRANSCRIPT_FILE"
       printf "\n\n" >> "$TRANSCRIPT_FILE"
@@ -477,11 +511,11 @@ SYNTH_PROMPT+="\n\nWrite only the synthesis."
 if run_with_prompt "$MODEL_A" "$SYNTH_PROMPT" "$SYNTHESIS_FILE"; then
   if ! append_for_length "$MODEL_A" "$SYNTHESIS_FILE" "$SYNTHESIS_MIN_CHARS" "$SYNTH_PROMPT"; then
     echo "[brainstorm] ERROR synthesis output too short" >> "$LOG"
-    exit 3
+    model_fail=1
   fi
 else
   echo "[brainstorm] ERROR synthesis runner failed" >> "$LOG"
-  exit 3
+  model_fail=1
 fi
 
 printf "## Round: synthesis\n\n" >> "$TRANSCRIPT_FILE"
@@ -504,3 +538,6 @@ mkdir -p "$BRAINSTORM_ROOT"
 echo "$SESSION_ID" > "$BRAINSTORM_ROOT/LAST_SESSION"
 
 echo "[brainstorm] done session_id=$SESSION_ID" >> "$LOG"
+if [[ $model_fail -ne 0 ]]; then
+  exit 2
+fi

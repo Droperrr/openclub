@@ -26,7 +26,7 @@ while true; do
 
     if [[ -n "$H" && "$H" != "$PREV" ]]; then
       echo "$H" > "$STATE"
-      local run_id=""
+      run_id=""
       if [[ -f "$WF/.selftest_run_id" ]]; then
         run_id=$(tail -n 1 "$WF/.selftest_run_id" | sed 's/^SELFTEST_RUN_ID=//')
       fi

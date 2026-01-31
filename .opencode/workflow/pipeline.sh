@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  set -euo pipefail
+else
+  set -eo pipefail
+fi
 
 ROOT="$(pwd)"
 WF="$ROOT/.opencode/workflow"
@@ -84,13 +88,33 @@ route_brainstorm_chat() {
     return 1
   fi
 
-  bash "$WF/brainstorm_chat.sh" "$brainstorm_text"
+  local args=()
+  local parsed_text="$brainstorm_text"
+  if [[ "$brainstorm_text" == --preset* ]]; then
+    if [[ "$brainstorm_text" =~ ^--preset[[:space:]]+([^[:space:]]+)[[:space:]]*(.*)$ ]]; then
+      args+=("--preset" "${BASH_REMATCH[1]}")
+      parsed_text="${BASH_REMATCH[2]}"
+    else
+      echo "FAIL: --preset requires a name" >&2
+      return 2
+    fi
+  fi
+
+  parsed_text="${parsed_text#${parsed_text%%[![:space:]]*}}"
+  if [[ -z "$parsed_text" ]]; then
+    echo "FAIL: brainstorm requires text" >&2
+    return 2
+  fi
+
+  bash "$WF/brainstorm_chat.sh" "$parsed_text" "${args[@]}"
   return 0
 }
 
 if [[ $CHAT_MODE -eq 1 ]]; then
+  set +e
   route_brainstorm_chat
   rc=$?
+  set -e
   if [[ $rc -eq 0 ]]; then
     exit 0
   elif [[ $rc -eq 2 ]]; then
