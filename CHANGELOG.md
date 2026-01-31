@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.01.31-brainstorm.2
+
+### Added
+- Brainstorm stdout output with BEGIN/END transcript blocks.
+- Brainstorm flags: `--quiet` and `--tail N`, with validation.
+
+### Changed
+- Brainstorm command supports transcript printing without changing artifacts.
+
 ## 2026.01.31-brainstorm.1
 
 ### Added
